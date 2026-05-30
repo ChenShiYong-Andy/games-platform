@@ -1,0 +1,10 @@
+.env
+.idea/
+*.iml
+backend/target/
+backend/application/
+backend/dependencies/
+backend/spring-boot-loader/
+frontend/node_modules/
+frontend/dist/
+.DS_Store
