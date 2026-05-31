@@ -1,3 +1,7 @@
+# 基础设施：MySQL + Redis（独立部署，数据持久化）
+# 首次启动: cd docker/database && docker compose up -d
+# 注意: 仅 docker compose down -v 会清除数据库，日常更新应用请勿执行 -v
+
 services:
   mysql:
     image: anolis-registry.cn-zhangjiakou.cr.aliyuncs.com/openanolis/mysql:8.0.30-8.6
@@ -12,7 +16,7 @@ services:
       - '${MYSQL_PORT:-3306}:3306'
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ../../sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     healthcheck:
       test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-uroot', '-p${MYSQL_ROOT_PASSWORD:-root123}']
@@ -20,6 +24,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - games-platform
 
   redis:
     image: anolis-registry.cn-zhangjiakou.cr.aliyuncs.com/openanolis/redis:5.0.3-8.6
@@ -32,40 +38,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  backend:
-    image: registry.cn-hangzhou.aliyuncs.com/aliyun_andy/games-platform-backend:1.0.0
-    container_name: games-platform-backend
-    restart: unless-stopped
-    ports:
-      - '${BACKEND_PORT:-8080}:8080'
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      MYSQL_HOST: mysql
-      MYSQL_PORT: 3306
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-games_platform}
-      MYSQL_USER: ${MYSQL_USER:-games}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-games123}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  frontend:
-    image: registry.cn-hangzhou.aliyuncs.com/aliyun_andy/games-platform-frontend:1.0.0
-    container_name: games-platform-frontend
-    restart: unless-stopped
-    ports:
-      - '${FRONTEND_PORT:-80}:80'
-    environment:
-      BACKEND_HOST: backend
-      BACKEND_PORT: 8080
-    depends_on:
-      - backend
+    networks:
+      - games-platform
 
 volumes:
   mysql_data:
+    name: games-platform_mysql_data
+
+networks:
+  games-platform:
+    name: games-platform-network

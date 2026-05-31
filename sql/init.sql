@@ -1,3 +1,6 @@
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
+
 CREATE DATABASE IF NOT EXISTS games_platform DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE games_platform;
 
@@ -15,7 +18,7 @@ CREATE TABLE users (
     total_clears INT NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE sudoku_games (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -33,7 +36,7 @@ CREATE TABLE sudoku_games (
     INDEX idx_user_id (user_id),
     INDEX idx_status (status),
     FOREIGN KEY (user_id) REFERENCES users(id)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE point_transactions (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -45,7 +48,7 @@ CREATE TABLE point_transactions (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_user_id (user_id),
     FOREIGN KEY (user_id) REFERENCES users(id)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE achievements (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -53,7 +56,7 @@ CREATE TABLE achievements (
     name VARCHAR(100) NOT NULL,
     description VARCHAR(255) NOT NULL,
     icon VARCHAR(50) NOT NULL
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE user_achievements (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -63,7 +66,7 @@ CREATE TABLE user_achievements (
     UNIQUE KEY uk_user_achievement (user_id, achievement_id),
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (achievement_id) REFERENCES achievements(id)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO achievements (code, name, description, icon) VALUES
 ('FIRST_CLEAR', '初出茅庐', '首次完成数独游戏', '🎯'),

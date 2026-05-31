@@ -1,0 +1,43 @@
+# 应用：Backend + Frontend（可频繁重建，不影响数据库）
+# 前置条件: 先启动 docker/database
+# 启动: cd docker/app && docker compose pull && docker compose up -d
+# 更新: cd docker/app && docker compose pull && docker compose up -d --force-recreate
+
+services:
+  backend:
+    image: ${BACKEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/aliyun_andy/games-platform-backend:1.0.0}
+    container_name: games-platform-backend
+    restart: unless-stopped
+    ports:
+      - '${BACKEND_PORT:-8080}:8080'
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      MYSQL_HOST: ${MYSQL_HOST:-games-platform-mysql}
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-games_platform}
+      MYSQL_USER: ${MYSQL_USER:-games}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-games123}
+      REDIS_HOST: ${REDIS_HOST:-games-platform-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    networks:
+      - games-platform
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/aliyun_andy/games-platform-frontend:1.0.0}
+    container_name: games-platform-frontend
+    restart: unless-stopped
+    ports:
+      - '${FRONTEND_PORT:-80}:80'
+    environment:
+      BACKEND_HOST: backend
+      BACKEND_PORT: 8080
+    depends_on:
+      - backend
+    networks:
+      - games-platform
+
+networks:
+  games-platform:
+    external: true
+    name: games-platform-network

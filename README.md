@@ -87,11 +87,26 @@ Mac（Apple Silicon）本地构建、x86 Linux 服务器部署时，`.env` 中�
 
 ### 3. 服务器部署
 
-将项目代码（或至少 `docker-compose.yml`、`.env`、`sql/init.sql`）放到服务器，确保 `.env` 中 `IMAGE_REGISTRY` 与 `IMAGE_TAG` 与推送时一致，然后：
+Compose 已拆分为 **数据库** 与 **应用** 两个独立目录，更新应用时不会重置 MySQL 数据。
+
+**首次部署（或新机器）：**
 
 ```bash
+# 1. 启动 MySQL / Redis（只需执行一次，或长期保持运行）
+cp docker/database/.env.example docker/database/.env   # 按需修改
+cd docker/database && docker compose up -d
+
+# 2. 启动 Backend / Frontend
+cp docker/app/.env.example docker/app/.env           # 确保镜像地址与 IMAGE_TAG 一致
+cd docker/app && docker compose pull && docker compose up -d
+```
+
+**更新应用版本（不影响数据库）：**
+
+```bash
+cd docker/app
 docker compose pull
-docker compose up -d
+docker compose up -d --force-recreate
 ```
 
 启动完成后访问 **http://服务器IP** 即可使用平台。
@@ -106,20 +121,29 @@ docker compose up -d
 常用命令：
 
 ```bash
-docker compose ps          # 查看服务状态
-docker compose logs -f     # 查看日志
-docker compose down        # 停止并移除容器
-docker compose down -v     # 停止并清除 MySQL 数据卷
+# 数据库
+cd docker/database
+docker compose ps
+docker compose logs -f
+docker compose down          # 停止容器，数据保留
+docker compose down -v       # ⚠️ 清除 MySQL 数据卷，仅在需要重置库时使用
+
+# 应用
+cd docker/app
+docker compose ps
+docker compose logs -f
+docker compose down          # 仅停止 backend / frontend
+docker compose up -d --force-recreate
 ```
 
-更新版本：本地修改代码 → 调整 `IMAGE_TAG` → 重新执行 `./scripts/docker-build-push.sh` → 服务器 `docker compose pull && docker compose up -d`。
+更新版本：本地修改代码 → 调整 `IMAGE_TAG` → 重新执行 `./scripts/docker-build-push.sh` → 在 `docker/app` 目录执行 `docker compose pull && docker compose up -d --force-recreate`。
 
 ## 本地开发（可选）
 
 若只需在本地调试代码，可仅启动基础设施：
 
 ```bash
-docker compose up -d mysql redis
+cd docker/database && docker compose up -d
 ```
 
 然后分别启动后端与前端：
@@ -147,10 +171,12 @@ games-platform/
 │   ├── Dockerfile
 │   └── nginx.conf.template
 ├── sql/                  # 数据库初始化脚本
+├── docker/
+│   ├── database/         # MySQL + Redis（独立部署，数据持久化）
+│   └── app/              # Backend + Frontend（可频繁重建）
 ├── scripts/
 │   └── docker-build-push.sh  # 本地构建并推送镜像
-├── docker-compose.yml
-└── .env.example          # 环境变量模板
+└── .env.example          # 镜像构建环境变量模板
 ```
 
 ## 架构设计

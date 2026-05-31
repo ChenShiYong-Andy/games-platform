@@ -86,7 +86,7 @@ if [[ "$PUSH" == "1" ]]; then
   docker push "$BACKEND_IMAGE"
   echo "==> 推送前端: ${FRONTEND_IMAGE}"
   docker push "$FRONTEND_IMAGE"
-  echo "==> 完成。部署时在服务器执行: docker compose pull && docker compose up -d"
+  echo "==> 完成。部署时在 docker/app 目录执行: docker compose pull && docker compose up -d --force-recreate"
 else
   echo "==> 构建完成（未推送，PUSH=0）"
 fi
