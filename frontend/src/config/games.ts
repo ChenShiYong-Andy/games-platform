@@ -22,7 +22,7 @@ export const gameApps: GameApp[] = [
   },
   {
     id: 'zoo-keeper',
-    name: '小小动物园管理员',
+    name: '动物园管理员',
     description: '照顾小猴子，满足它的小愿望',
     icon: '🐵',
     route: '/games/zoo',
