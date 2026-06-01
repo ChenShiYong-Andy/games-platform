@@ -4,11 +4,23 @@ import org.springframework.stereotype.Component;
 
 import java.util.*;
 
+/**
+ * 数独棋盘生成器。
+ */
 @Component
 public class SudokuGenerator {
 
+    /**
+     * 随机数生成器。
+     */
     private static final Random RANDOM = new Random();
 
+    /**
+     * 查询难度对应的棋盘尺寸。
+     *
+     * @param difficulty 游戏难度。
+     * @return 处理结果。
+     */
     public int getGridSize(String difficulty) {
         return switch (difficulty.toUpperCase()) {
             case "EASY" -> 4;
@@ -18,6 +30,12 @@ public class SudokuGenerator {
         };
     }
 
+    /**
+     * 查询宫格行尺寸。
+     *
+     * @param gridSize 棋盘尺寸。
+     * @return 处理结果。
+     */
     public int getBoxRowSize(int gridSize) {
         return switch (gridSize) {
             case 4 -> 2;
@@ -27,6 +45,12 @@ public class SudokuGenerator {
         };
     }
 
+    /**
+     * 查询宫格列尺寸。
+     *
+     * @param gridSize 棋盘尺寸。
+     * @return 处理结果。
+     */
     public int getBoxColSize(int gridSize) {
         return switch (gridSize) {
             case 4 -> 2;
@@ -36,12 +60,25 @@ public class SudokuGenerator {
         };
     }
 
+    /**
+     * 生成完整棋盘。
+     *
+     * @param gridSize 棋盘尺寸。
+     * @return 处理结果。
+     */
     public int[][] generateComplete(int gridSize) {
         int[][] board = new int[gridSize][gridSize];
         fillBoard(board, gridSize);
         return board;
     }
 
+    /**
+     * 根据答案生成题目棋盘。
+     *
+     * @param solution 答案棋盘。
+     * @param cellsToRemove 需要挖空的单元格数量。
+     * @return 处理结果。
+     */
     public int[][] createPuzzle(int[][] solution, int cellsToRemove) {
         int size = solution.length;
         int[][] puzzle = copyBoard(solution);
@@ -61,6 +98,12 @@ public class SudokuGenerator {
         return puzzle;
     }
 
+    /**
+     * 查询需要挖空的单元格数量。
+     *
+     * @param difficulty 游戏难度。
+     * @return 处理结果。
+     */
     public int getCellsToRemove(String difficulty) {
         return switch (difficulty.toUpperCase()) {
             case "EASY" -> 5;    // 4×4，数字 1～4
@@ -92,6 +135,16 @@ public class SudokuGenerator {
         return true;
     }
 
+    /**
+     * 校验数字能否填入指定位置。
+     *
+     * @param board 当前棋盘。
+     * @param row 行索引。
+     * @param col 列索引。
+     * @param num 待校验数字。
+     * @param gridSize 棋盘尺寸。
+     * @return 处理结果。
+     */
     public boolean isValid(int[][] board, int row, int col, int num, int gridSize) {
         for (int c = 0; c < gridSize; c++) {
             if (board[row][c] == num) return false;
@@ -111,6 +164,12 @@ public class SudokuGenerator {
         return true;
     }
 
+    /**
+     * 检查棋盘是否填写完整。
+     *
+     * @param board 当前棋盘。
+     * @return 处理结果。
+     */
     public boolean isBoardComplete(int[][] board) {
         int size = board.length;
         for (int r = 0; r < size; r++) {
@@ -121,6 +180,13 @@ public class SudokuGenerator {
         return true;
     }
 
+    /**
+     * 检查棋盘答案是否正确。
+     *
+     * @param board 当前棋盘。
+     * @param solution 答案棋盘。
+     * @return 处理结果。
+     */
     public boolean isBoardCorrect(int[][] board, int[][] solution) {
         int size = board.length;
         for (int r = 0; r < size; r++) {
@@ -131,6 +197,12 @@ public class SudokuGenerator {
         return true;
     }
 
+    /**
+     * 复制棋盘。
+     *
+     * @param board 当前棋盘。
+     * @return 处理结果。
+     */
     public int[][] copyBoard(int[][] board) {
         int size = board.length;
         int[][] copy = new int[size][size];

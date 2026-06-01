@@ -44,7 +44,13 @@ export const useAuthStore = defineStore('auth', () => {
     return profile
   }
 
-  async function updateProfile(data: { nickname?: string; email?: string; avatarUrl?: string }) {
+  async function updateProfile(data: {
+    nickname?: string
+    email?: string
+    avatarUrl?: string
+    sudokuDailyLimit?: number
+    zooDailyCareLimit?: number
+  }) {
     const profile = await putData<UserProfile>('/user/profile', data)
     user.value = profile
     localStorage.setItem('user', JSON.stringify(profile))

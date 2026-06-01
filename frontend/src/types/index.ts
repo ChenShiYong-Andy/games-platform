@@ -14,6 +14,9 @@ export interface UserProfile {
   totalPoints: number
   loginStreak: number
   totalClears: number
+  totalZooCares: number
+  sudokuDailyLimit: number
+  zooDailyCareLimit: number
 }
 
 export interface AuthResponse {
@@ -44,6 +47,20 @@ export interface SubmitGameResponse {
   totalPoints?: number
 }
 
+export interface ZooCareResponse {
+  gameId: number
+  status: 'IN_PROGRESS' | 'COMPLETED' | 'FAILED'
+  currentNeed: 'food' | 'water' | 'ball'
+  score: number
+  remainingSeconds: number
+  remainingToday: number
+  pointsAwarded: number
+  pointsDeducted: number
+  totalPoints: number
+  correct: boolean | null
+  message: string
+}
+
 export interface RankingEntry {
   userId: number
   nickname: string
@@ -55,6 +72,7 @@ export interface RankingEntry {
 export interface Achievement {
   id: number
   code: string
+  gameCode: string
   name: string
   description: string
   icon: string

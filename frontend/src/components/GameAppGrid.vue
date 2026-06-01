@@ -2,8 +2,20 @@
 import { useRouter } from 'vue-router'
 import { gameApps, type GameApp } from '@/config/games'
 import { ElMessage } from 'element-plus'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
+
+function getGameStat(game: GameApp) {
+  if (game.id === 'sudoku') {
+    return { label: '通关次数', value: authStore.user?.totalClears ?? 0 }
+  }
+  if (game.id === 'zoo-keeper') {
+    return { label: '照顾次数', value: authStore.user?.totalZooCares ?? 0 }
+  }
+  return null
+}
 
 function openGame(game: GameApp) {
   if (!game.enabled || !game.route) {
@@ -28,6 +40,9 @@ function openGame(game: GameApp) {
       <span class="app-icon">{{ game.icon }}</span>
       <span class="app-name">{{ game.name }}</span>
       <span class="app-desc">{{ game.description }}</span>
+      <span v-if="getGameStat(game)" class="app-stat">
+        {{ getGameStat(game)?.label }} {{ getGameStat(game)?.value }}
+      </span>
       <span v-if="game.enabled" class="app-hint">点击进入 →</span>
       <span v-else class="app-badge">即将上线</span>
     </button>
@@ -104,6 +119,15 @@ function openGame(game: GameApp) {
   margin-top: 8px;
   font-size: 12px;
   opacity: 0.8;
+}
+
+.app-stat {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 4px;
+  padding: 4px 10px;
 }
 
 .app-badge {

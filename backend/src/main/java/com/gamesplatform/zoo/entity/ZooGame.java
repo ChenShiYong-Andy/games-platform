@@ -1,4 +1,4 @@
-package com.gamesplatform.sudoku.entity;
+package com.gamesplatform.zoo.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -8,11 +8,11 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 数独游戏记录实体。
+ * 动物园游戏记录实体。
  */
 @Data
-@TableName("sudoku_games")
-public class SudokuGame {
+@TableName("zoo_games")
+public class ZooGame {
 
     /**
      * 主键 ID。
@@ -24,37 +24,25 @@ public class SudokuGame {
      */
     private Long userId;
     /**
-     * 游戏难度。
-     */
-    private String difficulty;
-    /**
-     * 题目棋盘 JSON。
-     */
-    private String puzzleJson;
-    /**
-     * 答案棋盘 JSON。
-     */
-    private String solutionJson;
-    /**
      * 状态。
      */
     private String status;
     /**
-     * 耗时秒数。
+     * 当前照料需求。
      */
-    private Integer elapsedSeconds;
-    /**
-     * 已使用提示次数。
-     */
-    private Integer hintsUsed;
-    /**
-     * 错误次数。
-     */
-    private Integer mistakes;
+    private String currentNeed;
     /**
      * 得分。
      */
     private Integer score;
+    /**
+     * 已获得积分。
+     */
+    private Integer pointsAwarded;
+    /**
+     * 已扣除积分。
+     */
+    private Integer pointsDeducted;
     /**
      * 开始时间。
      */

@@ -1,8 +1,13 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import GameAppGrid from '@/components/GameAppGrid.vue'
 
 const authStore = useAuthStore()
+
+onMounted(() => {
+  void authStore.refreshProfile().catch(() => undefined)
+})
 </script>
 
 <template>
@@ -21,10 +26,6 @@ const authStore = useAuthStore()
         <div class="stat-item">
           <span class="stat-value">{{ authStore.user?.totalPoints }}</span>
           <span class="stat-label">总积分</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-value">{{ authStore.user?.totalClears }}</span>
-          <span class="stat-label">通关次数</span>
         </div>
         <div class="stat-item">
           <span class="stat-value">{{ authStore.user?.loginStreak }}</span>

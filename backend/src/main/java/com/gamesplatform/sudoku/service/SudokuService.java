@@ -25,20 +25,59 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * 数独业务服务。
+ */
 @Service
 @RequiredArgsConstructor
 public class SudokuService {
 
+    /**
+     * 默认每日数独次数上限。
+     */
+    private static final int DEFAULT_SUDOKU_DAILY_LIMIT = 5;
+
+    /**
+     * 数独游戏引擎。
+     */
     private final SudokuGameEngine sudokuGameEngine;
+    /**
+     * 数独游戏记录数据访问组件。
+     */
     private final SudokuGameMapper sudokuGameMapper;
+    /**
+     * JSON 序列化组件。
+     */
     private final ObjectMapper objectMapper;
+    /**
+     * 积分服务。
+     */
     private final PointsService pointsService;
+    /**
+     * 排行榜服务。
+     */
     private final RankingService rankingService;
+    /**
+     * 成就服务。
+     */
     private final AchievementService achievementService;
+    /**
+     * 用户数据访问组件。
+     */
     private final UserMapper userMapper;
 
+    /**
+     * 日期时间格式化器。
+     */
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
+    /**
+     * 创建游戏。
+     *
+     * @param userId 用户 ID。
+     * @param difficulty 游戏难度。
+     * @return 处理结果。
+     */
     @Transactional
     public GameResponse createGame(Long userId, String difficulty) {
         if (difficulty == null || difficulty.isBlank()) {
@@ -65,11 +104,25 @@ public class SudokuService {
         return toGameResponse(game, session.getPuzzle());
     }
 
+    /**
+     * 查询游戏。
+     *
+     * @param userId 用户 ID。
+     * @param gameId 游戏 ID。
+     * @return 处理结果。
+     */
     public GameResponse getGame(Long userId, Long gameId) {
         SudokuGame game = getGameEntity(userId, gameId);
         return toGameResponse(game, fromJson(game.getPuzzleJson()));
     }
 
+    /**
+     * 查询游戏历史。
+     *
+     * @param userId 用户 ID。
+     * @param limit 查询数量上限。
+     * @return 处理结果。
+     */
     public List<GameResponse> getGameHistory(Long userId, int limit) {
         List<SudokuGame> games = sudokuGameMapper.selectList(
                 new LambdaQueryWrapper<SudokuGame>()
@@ -79,6 +132,14 @@ public class SudokuService {
         return games.stream().map(g -> toGameResponse(g, fromJson(g.getPuzzleJson()))).toList();
     }
 
+    /**
+     * 校验落子。
+     *
+     * @param userId 用户 ID。
+     * @param gameId 游戏 ID。
+     * @param request 请求参数。
+     * @return 处理结果。
+     */
     public ValidateMoveResponse validateMove(Long userId, Long gameId, ValidateMoveRequest request) {
         SudokuGame game = getGameEntity(userId, gameId);
         if (!"IN_PROGRESS".equals(game.getStatus())) {
@@ -91,6 +152,13 @@ public class SudokuService {
         return ValidateMoveResponse.builder().valid(valid).build();
     }
 
+    /**
+     * 获取提示。
+     *
+     * @param userId 用户 ID。
+     * @param gameId 游戏 ID。
+     * @return 处理结果。
+     */
     @Transactional
     public HintResponse getHint(Long userId, Long gameId) {
         SudokuGame game = getGameEntity(userId, gameId);
@@ -112,12 +180,21 @@ public class SudokuService {
                 .build();
     }
 
+    /**
+     * 提交游戏。
+     *
+     * @param userId 用户 ID。
+     * @param gameId 游戏 ID。
+     * @param request 请求参数。
+     * @return 处理结果。
+     */
     @Transactional
     public SubmitGameResponse submitGame(Long userId, Long gameId, SubmitGameRequest request) {
         SudokuGame game = getGameEntity(userId, gameId);
         if (!"IN_PROGRESS".equals(game.getStatus())) {
             throw new BusinessException("游戏已结束");
         }
+        validateDailyLimit(userId);
 
         int[][] solution = fromJson(game.getSolutionJson());
         GameSubmitCommand command = new GameSubmitCommand();
@@ -154,7 +231,8 @@ public class SudokuService {
         user.setTotalClears(totalClears);
         userMapper.updateById(user);
 
-        achievementService.checkGameComplete(userId, game.getDifficulty(), totalClears);
+        achievementService.checkGameComplete(
+                userId, AchievementService.GAME_SUDOKU, game.getDifficulty(), totalClears);
 
         return SubmitGameResponse.builder()
                 .success(true)
@@ -172,6 +250,27 @@ public class SudokuService {
             throw new BusinessException("游戏不存在");
         }
         return game;
+    }
+
+    private void validateDailyLimit(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
+
+        int dailyLimit = user.getSudokuDailyLimit() != null
+                ? user.getSudokuDailyLimit()
+                : DEFAULT_SUDOKU_DAILY_LIMIT;
+        LocalDateTime startOfDay = LocalDateTime.now().toLocalDate().atStartOfDay();
+        Long gamesPlayedToday = sudokuGameMapper.selectCount(
+                new LambdaQueryWrapper<SudokuGame>()
+                        .eq(SudokuGame::getUserId, userId)
+                        .eq(SudokuGame::getStatus, "COMPLETED")
+                        .ge(SudokuGame::getCompletedAt, startOfDay)
+                        .lt(SudokuGame::getCompletedAt, startOfDay.plusDays(1)));
+        if (gamesPlayedToday >= dailyLimit) {
+            throw new BusinessException("今天可提交的数独次数已用完，请明天再来");
+        }
     }
 
     private void validateDifficulty(String difficulty) {

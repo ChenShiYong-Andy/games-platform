@@ -18,7 +18,7 @@
 - **认证中心** — JWT 认证、BCrypt 密码加密
 - **数独中心** — 创建游戏、难度选择、计时、校验、提示、撤销重做、结算、记录
 - **积分中心** — 游戏积分奖励、流水记录、用户等级
-- **排行榜中心** — 总积分榜、本周积分榜、数独速度榜
+- **排行榜中心** — 总积分榜、本周积分榜、数独速度榜、动物园平均时长榜
 - **成就中心** — 首次通关、连续登录、通关次数、专家模式
 
 ## 部署流程（本地构建 → 推送镜像仓库）
@@ -206,5 +206,6 @@ V1.0 仅实现 `SudokuGameEngine`，未来可无缝接入新游戏。
 | GET | /api/ranking/total | 总积分排行榜 |
 | GET | /api/ranking/weekly | 本周积分排行榜 |
 | GET | /api/ranking/sudoku-speed | 数独速度排行榜 |
+| GET | /api/ranking/zoo-average-duration | 动物园平均完成时长排行榜 |
 | GET | /api/achievements | 成就列表 |
 | GET | /api/points/transactions | 积分流水 |

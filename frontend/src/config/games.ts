@@ -21,6 +21,16 @@ export const gameApps: GameApp[] = [
     enabled: true
   },
   {
+    id: 'zoo-keeper',
+    name: '小小动物园管理员',
+    description: '照顾小猴子，满足它的小愿望',
+    icon: '🐵',
+    route: '/games/zoo',
+    bg: 'linear-gradient(145deg, #43b581 0%, #2f8f68 100%)',
+    shadow: '0 8px 24px rgba(67, 181, 129, 0.35)',
+    enabled: true
+  },
+  {
     id: 'minesweeper',
     name: '扫雷',
     description: '敬请期待',

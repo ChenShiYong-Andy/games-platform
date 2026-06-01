@@ -9,13 +9,26 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * 积分接口。
+ */
 @RestController
 @RequestMapping("/api/points")
 @RequiredArgsConstructor
 public class PointsController {
 
+    /**
+     * 积分服务。
+     */
     private final PointsService pointsService;
 
+    /**
+     * 查询积分流水。
+     *
+     * @param authentication 当前认证信息。
+     * @param limit 查询数量上限。
+     * @return 处理结果。
+     */
     @GetMapping("/transactions")
     public ApiResponse<List<PointTransactionResponse>> getTransactions(
             Authentication authentication,

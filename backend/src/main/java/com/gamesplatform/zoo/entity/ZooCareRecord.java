@@ -1,4 +1,4 @@
-package com.gamesplatform.achievement.entity;
+package com.gamesplatform.zoo.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -8,11 +8,11 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 用户成就实体。
+ * 动物园照料记录实体。
  */
 @Data
-@TableName("user_achievements")
-public class UserAchievement {
+@TableName("zoo_care_records")
+public class ZooCareRecord {
 
     /**
      * 主键 ID。
@@ -24,11 +24,7 @@ public class UserAchievement {
      */
     private Long userId;
     /**
-     * 成就 ID。
+     * 照料时间。
      */
-    private Long achievementId;
-    /**
-     * 解锁时间。
-     */
-    private LocalDateTime unlockedAt;
+    private LocalDateTime caredAt;
 }

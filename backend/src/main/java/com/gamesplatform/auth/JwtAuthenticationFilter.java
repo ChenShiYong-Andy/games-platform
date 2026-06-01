@@ -15,12 +15,27 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.Collections;
 
+/**
+ * JWT 身份认证过滤器。
+ */
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    /**
+     * JWT 令牌组件。
+     */
     private final JwtTokenProvider jwtTokenProvider;
 
+    /**
+     * 执行 JWT 身份认证过滤。
+     *
+     * @param request 请求参数。
+     * @param response 响应参数。
+     * @param filterChain 过滤器链。
+     * @throws ServletException 执行失败时抛出。
+     * @throws IOException 执行失败时抛出。
+     */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {

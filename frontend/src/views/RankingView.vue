@@ -8,6 +8,7 @@ const activeTab = ref('total')
 const totalRanking = ref<RankingEntry[]>([])
 const weeklyRanking = ref<RankingEntry[]>([])
 const speedRanking = ref<RankingEntry[]>([])
+const zooAverageDurationRanking = ref<RankingEntry[]>([])
 const speedDifficulty = ref('EASY')
 const loading = ref(false)
 
@@ -18,8 +19,10 @@ async function loadRanking() {
       totalRanking.value = await getData<RankingEntry[]>('/ranking/total')
     } else if (activeTab.value === 'weekly') {
       weeklyRanking.value = await getData<RankingEntry[]>('/ranking/weekly')
-    } else {
+    } else if (activeTab.value === 'speed') {
       speedRanking.value = await getData<RankingEntry[]>('/ranking/sudoku-speed', { difficulty: speedDifficulty.value })
+    } else {
+      zooAverageDurationRanking.value = await getData<RankingEntry[]>('/ranking/zoo-average-duration')
     }
   } finally {
     loading.value = false
@@ -48,6 +51,9 @@ onMounted(loadRanking)
           </el-radio-group>
         </div>
         <RankingTable :data="speedRanking" :loading="loading" score-label="用时(秒)" />
+      </el-tab-pane>
+      <el-tab-pane label="动物园平均时长榜" name="zoo-average-duration">
+        <RankingTable :data="zooAverageDurationRanking" :loading="loading" score-label="平均用时(秒)" />
       </el-tab-pane>
     </el-tabs>
   </div>

@@ -9,20 +9,42 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+/**
+ * 数独游戏引擎。
+ */
 @Component
 public class SudokuGameEngine implements GameEngine {
 
+    /**
+     * 数独生成器。
+     */
     private final SudokuGenerator generator;
 
+    /**
+     * 创建数独游戏引擎。
+     *
+     * @param generator 数独生成器。
+     */
     public SudokuGameEngine(SudokuGenerator generator) {
         this.generator = generator;
     }
 
+    /**
+     * 查询游戏类型。
+     *
+     * @return 处理结果。
+     */
     @Override
     public String getGameType() {
         return "SUDOKU";
     }
 
+    /**
+     * 创建游戏。
+     *
+     * @param difficulty 游戏难度。
+     * @return 处理结果。
+     */
     @Override
     public GameSession createGame(String difficulty) {
         String normalized = difficulty.toUpperCase();
@@ -39,10 +61,24 @@ public class SudokuGameEngine implements GameEngine {
                 .build();
     }
 
+    /**
+     * 提交游戏结果。
+     *
+     * @param command 游戏提交命令。
+     * @return 处理结果。
+     */
     public GameResult submit(GameSubmitCommand command) {
         throw new UnsupportedOperationException("Use submitWithSolution instead");
     }
 
+    /**
+     * 根据答案提交游戏结果。
+     *
+     * @param command 游戏提交命令。
+     * @param solution 答案棋盘。
+     * @param difficulty 游戏难度。
+     * @return 处理结果。
+     */
     public GameResult submitWithSolution(GameSubmitCommand command, int[][] solution, String difficulty) {
         int[][] board = command.getBoard();
         if (!generator.isBoardComplete(board)) {
@@ -67,12 +103,29 @@ public class SudokuGameEngine implements GameEngine {
                 .build();
     }
 
+    /**
+     * 校验落子。
+     *
+     * @param board 当前棋盘。
+     * @param row 行索引。
+     * @param col 列索引。
+     * @param value 填入值。
+     * @param solution 答案棋盘。
+     * @return 处理结果。
+     */
     @Override
     public boolean validateMove(int[][] board, int row, int col, int value, int[][] solution) {
         if (value == 0) return true;
         return value == solution[row][col];
     }
 
+    /**
+     * 获取提示。
+     *
+     * @param board 当前棋盘。
+     * @param solution 答案棋盘。
+     * @return 处理结果。
+     */
     @Override
     public int[] getHint(int[][] board, int[][] solution) {
         int size = board.length;
@@ -89,6 +142,15 @@ public class SudokuGameEngine implements GameEngine {
         return new int[]{pos[0], pos[1], solution[pos[0]][pos[1]]};
     }
 
+    /**
+     * 计算游戏得分。
+     *
+     * @param difficulty 游戏难度。
+     * @param elapsedSeconds 耗时秒数。
+     * @param hintsUsed 已使用提示次数。
+     * @param mistakes 错误次数。
+     * @return 处理结果。
+     */
     public int calculateScore(String difficulty, int elapsedSeconds, int hintsUsed, int mistakes) {
         int base = switch (difficulty.toUpperCase()) {
             case "EASY" -> 20;
