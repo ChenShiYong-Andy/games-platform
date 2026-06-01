@@ -64,7 +64,9 @@ public class SecurityConfig {
                 "http://127.0.0.1:[*]",
                 "http://10.*.*.*:[*]",
                 "http://172.*.*.*:[*]",
-                "http://192.168.*.*:[*]"
+                "http://192.168.*.*:[*]",
+                "http://*.natappfree.cc:[*]",
+                "https://*.natappfree.cc:[*]"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));

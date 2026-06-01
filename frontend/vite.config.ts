@@ -11,6 +11,7 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
+    allowedHosts: ['.natappfree.cc'],
     port: 5173,
     proxy: {
       '/api': {
@@ -20,6 +21,7 @@ export default defineConfig({
     }
   },
   preview: {
-    host: '0.0.0.0'
+    host: '0.0.0.0',
+    allowedHosts: ['.natappfree.cc']
   }
 })
