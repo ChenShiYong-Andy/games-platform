@@ -29,7 +29,6 @@ const benefits = ref<PetBenefitItem[]>([])
 const myBenefits = ref<PetUserBenefit[]>([])
 const petTypes = ref<PetTypeOption[]>([])
 const selectedType = ref('')
-const selectedColor = ref('')
 const petName = ref('')
 const activeTab = ref<'shop' | 'bag'>('shop')
 
@@ -61,6 +60,20 @@ const realAnimalGifs: Record<string, string[]> = {
     '/pet-gifs/real/dinosaur_stage_3.gif',
     '/pet-gifs/real/dinosaur_stage_4.gif',
     '/pet-gifs/real/dinosaur_stage_5.gif'
+  ],
+  ANGELWOMON: [
+    '/pet-gifs/real/angelwomon_stage_1.gif',
+    '/pet-gifs/real/angelwomon_stage_2.gif',
+    '/pet-gifs/real/angelwomon_stage_3.gif',
+    '/pet-gifs/real/angelwomon_stage_4.gif',
+    '/pet-gifs/real/angelwomon_stage_5.gif'
+  ],
+  ANGEMON: [
+    '/pet-gifs/real/angemon_stage_1.gif',
+    '/pet-gifs/real/angemon_stage_2.gif',
+    '/pet-gifs/real/angemon_stage_3.gif',
+    '/pet-gifs/real/angemon_stage_4.gif',
+    '/pet-gifs/real/angemon_stage_5.gif'
   ]
 }
 
@@ -71,8 +84,10 @@ const selectedTypeOption = computed(
 const selectedColorOption = computed<PetColorOption | null>(() => {
   return (
     selectedTypeOption.value?.colors.find(
-      (item) => item.colorCode === selectedColor.value
-    ) || null
+      (item) => item.colorCode === selectedTypeOption.value?.defaultColorCode
+    ) ||
+    selectedTypeOption.value?.colors[0] ||
+    null
   )
 })
 const stagePreviewList = computed(
@@ -126,6 +141,8 @@ function petSymbol(type?: string) {
   if (type === 'DOG') return '🐶'
   if (type === 'RABBIT') return '🐰'
   if (type === 'DINOSAUR') return '🦕'
+  if (type === 'ANGELWOMON') return '🪽'
+  if (type === 'ANGEMON') return '👼'
   return '🐱'
 }
 
@@ -210,19 +227,17 @@ function applyHome(data: PetHomeResponse) {
 
 function selectType(type: PetTypeOption) {
   selectedType.value = type.petType
-  selectedColor.value = type.defaultColorCode || type.colors[0]?.colorCode || ''
 }
 
 async function adoptPet() {
-  if (!selectedType.value || !selectedColor.value) {
-    ElMessage.info('请选择宠物和颜色')
+  if (!selectedType.value) {
+    ElMessage.info('请选择宠物')
     return
   }
   adopting.value = true
   try {
     const pet = await postData<PetInfo>('/pet/init/select', {
       petType: selectedType.value,
-      colorCode: selectedColor.value,
       petName: petName.value
     })
     ElMessage.success(`领养成功，${pet.petName} 来啦`)
@@ -322,26 +337,6 @@ onMounted(() => {
       </div>
 
       <div class="adopt-panel">
-        <div>
-          <h2>选择颜色</h2>
-          <div class="color-row">
-            <button
-              v-for="color in selectedTypeOption?.colors"
-              :key="color.colorCode"
-              class="color-choice"
-              :class="{ active: selectedColor === color.colorCode }"
-              type="button"
-              @click="selectedColor = color.colorCode"
-            >
-              <span
-                class="swatch"
-                :style="{ background: color.colorHex }"
-              ></span>
-              {{ color.colorName }}
-            </button>
-          </div>
-        </div>
-
         <div>
           <h2>宠物名称</h2>
           <el-input
@@ -681,40 +676,8 @@ onMounted(() => {
 }
 
 .adopt-panel {
-  display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr);
-  gap: 20px;
+  max-width: 520px;
   margin: 22px 0;
-}
-
-.color-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.color-choice {
-  border: 1px solid #e5e7ef;
-  background: #fff;
-  border-radius: 999px;
-  padding: 7px 12px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-}
-
-.color-choice.active {
-  border-color: #ff9f43;
-  color: #d46b08;
-  font-weight: 700;
-}
-
-.swatch {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.12);
 }
 
 .stage-grid {
@@ -991,8 +954,7 @@ onMounted(() => {
 }
 
 @media (max-width: 900px) {
-  .pet-stage,
-  .adopt-panel {
+  .pet-stage {
     grid-template-columns: 1fr;
   }
 

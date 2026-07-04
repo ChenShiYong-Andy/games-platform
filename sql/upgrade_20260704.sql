@@ -279,10 +279,12 @@ ON DUPLICATE KEY UPDATE
 INSERT INTO pet_type_config
 (pet_type, pet_name, description, default_color_code, sort_no, enabled, create_time, update_time)
 VALUES
-('CAT', '小猫', '可爱又爱干净的小猫', 'ORANGE', 1, 1, NOW(), NOW()),
-('DOG', '小狗', '活泼又忠诚的小狗', 'BROWN', 2, 1, NOW(), NOW()),
-('RABBIT', '小白兔', '温柔可爱的小白兔', 'WHITE', 3, 1, NOW(), NOW()),
-('DINOSAUR', '小恐龙', '勇敢又特别的小恐龙', 'GREEN', 4, 1, NOW(), NOW())
+('CAT', '小猫', '可爱又爱干净的小猫', 'ORANGE', 99, 0, NOW(), NOW()),
+('DOG', '小狗', '活泼又忠诚的小狗', 'BROWN', 100, 0, NOW(), NOW()),
+('RABBIT', '小白兔', '温柔可爱的小白兔', 'WHITE', 1, 1, NOW(), NOW()),
+('DINOSAUR', '小恐龙', '勇敢又特别的小恐龙', 'GREEN', 2, 1, NOW(), NOW()),
+('ANGELWOMON', '天女兽', '温柔又闪耀的天使系伙伴', 'GOLD', 3, 1, NOW(), NOW()),
+('ANGEMON', '天使兽', '正直又可靠的神圣系伙伴', 'GOLD', 4, 1, NOW(), NOW())
 ON DUPLICATE KEY UPDATE
     pet_name = VALUES(pet_name),
     description = VALUES(description),
@@ -294,18 +296,24 @@ ON DUPLICATE KEY UPDATE
 INSERT INTO pet_color_config
 (pet_type, color_code, color_name, color_hex, asset_key, sort_no, enabled, create_time, update_time)
 VALUES
-('CAT', 'ORANGE', '橘色', '#F6A23A', 'cat_orange', 1, 1, NOW(), NOW()),
-('CAT', 'WHITE', '白色', '#FFFFFF', 'cat_white', 2, 1, NOW(), NOW()),
-('CAT', 'GRAY', '灰色', '#BFC3C7', 'cat_gray', 3, 1, NOW(), NOW()),
-('DOG', 'BROWN', '棕色', '#A66A3F', 'dog_brown', 1, 1, NOW(), NOW()),
-('DOG', 'WHITE', '白色', '#FFFFFF', 'dog_white', 2, 1, NOW(), NOW()),
-('DOG', 'YELLOW', '黄色', '#F4D03F', 'dog_yellow', 3, 1, NOW(), NOW()),
+('CAT', 'ORANGE', '橘色', '#F6A23A', 'cat_orange', 1, 0, NOW(), NOW()),
+('CAT', 'WHITE', '白色', '#FFFFFF', 'cat_white', 2, 0, NOW(), NOW()),
+('CAT', 'GRAY', '灰色', '#BFC3C7', 'cat_gray', 3, 0, NOW(), NOW()),
+('DOG', 'BROWN', '棕色', '#A66A3F', 'dog_brown', 1, 0, NOW(), NOW()),
+('DOG', 'WHITE', '白色', '#FFFFFF', 'dog_white', 2, 0, NOW(), NOW()),
+('DOG', 'YELLOW', '黄色', '#F4D03F', 'dog_yellow', 3, 0, NOW(), NOW()),
 ('RABBIT', 'WHITE', '白色', '#FFFFFF', 'rabbit_white', 1, 1, NOW(), NOW()),
 ('RABBIT', 'PINK', '粉色', '#FFB6C1', 'rabbit_pink', 2, 1, NOW(), NOW()),
 ('RABBIT', 'GRAY', '灰色', '#BFC3C7', 'rabbit_gray', 3, 1, NOW(), NOW()),
 ('DINOSAUR', 'GREEN', '绿色', '#67C23A', 'dinosaur_green', 1, 1, NOW(), NOW()),
 ('DINOSAUR', 'BLUE', '蓝色', '#409EFF', 'dinosaur_blue', 2, 1, NOW(), NOW()),
-('DINOSAUR', 'PURPLE', '紫色', '#9B59B6', 'dinosaur_purple', 3, 1, NOW(), NOW())
+('DINOSAUR', 'PURPLE', '紫色', '#9B59B6', 'dinosaur_purple', 3, 1, NOW(), NOW()),
+('ANGELWOMON', 'GOLD', '金色', '#F6C85F', 'angelwomon_gold', 1, 1, NOW(), NOW()),
+('ANGELWOMON', 'WHITE', '白色', '#FFFFFF', 'angelwomon_white', 2, 1, NOW(), NOW()),
+('ANGELWOMON', 'PINK', '粉色', '#FF9ECF', 'angelwomon_pink', 3, 1, NOW(), NOW()),
+('ANGEMON', 'GOLD', '金色', '#F6C85F', 'angemon_gold', 1, 1, NOW(), NOW()),
+('ANGEMON', 'WHITE', '白色', '#FFFFFF', 'angemon_white', 2, 1, NOW(), NOW()),
+('ANGEMON', 'BLUE', '蓝色', '#7DB9FF', 'angemon_blue', 3, 1, NOW(), NOW())
 ON DUPLICATE KEY UPDATE
     color_name = VALUES(color_name),
     color_hex = VALUES(color_hex),
@@ -339,11 +347,11 @@ SELECT
 FROM pet_color_config c
 JOIN pet_type_config t ON t.pet_type = c.pet_type
 JOIN (
-    SELECT 1 AS stage_no, '幼年期' AS stage_name, 1 AS min_level, 20 AS max_level
-    UNION ALL SELECT 2, '成长期', 21, 40
-    UNION ALL SELECT 3, '进阶期', 41, 60
-    UNION ALL SELECT 4, '成熟期', 61, 80
-    UNION ALL SELECT 5, '完全体', 81, 100
+    SELECT 1 AS stage_no, '幼年期' AS stage_name, 1 AS min_level, 5 AS max_level
+    UNION ALL SELECT 2, '成长期', 6, 15
+    UNION ALL SELECT 3, '进阶期', 16, 30
+    UNION ALL SELECT 4, '成熟期', 31, 50
+    UNION ALL SELECT 5, '完全体', 51, 70
 ) s
 WHERE c.enabled = 1
 ON DUPLICATE KEY UPDATE
@@ -357,12 +365,34 @@ ON DUPLICATE KEY UPDATE
     sort_no = VALUES(sort_no),
     update_time = NOW();
 
+UPDATE pet_growth_stage_config
+SET enabled = 0,
+    update_time = NOW()
+WHERE pet_type IN ('CAT', 'DOG');
+
+UPDATE pet_user
+SET level = 70,
+    exp = 0,
+    update_time = NOW()
+WHERE level > 70;
+
+UPDATE pet_user
+SET stage_no = CASE
+        WHEN level <= 5 THEN 1
+        WHEN level <= 15 THEN 2
+        WHEN level <= 30 THEN 3
+        WHEN level <= 50 THEN 4
+        ELSE 5
+    END,
+    update_time = NOW();
+
 UPDATE pet_user p
 LEFT JOIN pet_growth_stage_config s
   ON s.pet_type = p.pet_type
  AND s.color_code = p.pet_color_code
  AND s.stage_no = p.stage_no
-SET p.pet_asset_key = COALESCE(p.pet_asset_key, s.asset_key),
+SET p.pet_asset_key = COALESCE(s.asset_key, p.pet_asset_key),
     p.init_time = COALESCE(p.init_time, p.create_time)
-WHERE p.pet_asset_key IS NULL
+WHERE s.asset_key IS NOT NULL
+   OR p.pet_asset_key IS NULL
    OR p.init_time IS NULL;

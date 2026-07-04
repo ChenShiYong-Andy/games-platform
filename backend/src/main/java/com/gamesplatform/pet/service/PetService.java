@@ -34,7 +34,7 @@ public class PetService {
     private static final int ORDER_PROCESSING = 0;
     private static final int ORDER_SUCCESS = 1;
     private static final int ORDER_FAILED = 2;
-    private static final int MAX_LEVEL = 100;
+    private static final int MAX_LEVEL = 70;
     private static final String POINT_TYPE_EXCHANGE = "PET_BENEFIT_EXCHANGE";
     private static final DateTimeFormatter ORDER_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
 
@@ -167,7 +167,6 @@ public class PetService {
         }
 
         String petTypeCode = request.getPetType().toUpperCase();
-        String colorCode = request.getColorCode().toUpperCase();
         PetTypeConfig petType = petTypeConfigMapper.selectOne(
                 new LambdaQueryWrapper<PetTypeConfig>()
                         .eq(PetTypeConfig::getPetType, petTypeCode)
@@ -178,17 +177,41 @@ public class PetService {
         if (petType == null) {
             throw new BusinessException(40001, "宠物类型不存在");
         }
-        PetColorConfig color = petColorConfigMapper.selectOne(
-                new LambdaQueryWrapper<PetColorConfig>()
-                        .eq(PetColorConfig::getPetType, petTypeCode)
-                        .eq(PetColorConfig::getColorCode, colorCode)
-                        .eq(PetColorConfig::getEnabled, 1));
+        String colorCode = request.getColorCode() == null || request.getColorCode().isBlank()
+                ? petType.getDefaultColorCode()
+                : request.getColorCode().toUpperCase();
+        PetColorConfig color = null;
+        if (colorCode != null && !colorCode.isBlank()) {
+            color = petColorConfigMapper.selectOne(
+                    new LambdaQueryWrapper<PetColorConfig>()
+                            .eq(PetColorConfig::getPetType, petTypeCode)
+                            .eq(PetColorConfig::getColorCode, colorCode)
+                            .eq(PetColorConfig::getEnabled, 1));
+        }
         if (color == null) {
             color = getDefaultPetColor(petTypeCode, colorCode);
         }
         if (color == null) {
+            color = petColorConfigMapper.selectList(
+                            new LambdaQueryWrapper<PetColorConfig>()
+                                    .eq(PetColorConfig::getPetType, petTypeCode)
+                                    .eq(PetColorConfig::getEnabled, 1)
+                                    .orderByAsc(PetColorConfig::getSortNo)
+                                    .orderByAsc(PetColorConfig::getId))
+                    .stream()
+                    .findFirst()
+                    .orElse(null);
+        }
+        if (color == null) {
+            color = getDefaultPetColors().stream()
+                    .filter(item -> item.getPetType().equals(petTypeCode))
+                    .findFirst()
+                    .orElse(null);
+        }
+        if (color == null) {
             throw new BusinessException(40003, "颜色不可用");
         }
+        colorCode = color.getColorCode();
         PetGrowthStageConfig stage = getStageConfig(petTypeCode, colorCode, 1);
         if (stage == null) {
             throw new BusinessException("宠物成长阶段配置不存在");
@@ -507,10 +530,19 @@ public class PetService {
     }
 
     private int calculateStageNo(int level) {
-        if (level <= 0) {
+        if (level <= 5) {
             return 1;
         }
-        return Math.min(((level - 1) / 20) + 1, 5);
+        if (level <= 15) {
+            return 2;
+        }
+        if (level <= 30) {
+            return 3;
+        }
+        if (level <= 50) {
+            return 4;
+        }
+        return 5;
     }
 
     private PetUser getPet(Long userId) {
@@ -694,10 +726,10 @@ public class PetService {
 
     private List<PetTypeConfig> getDefaultPetTypes() {
         return List.of(
-                buildPetType("CAT", "小猫", "可爱又爱干净的小猫", "ORANGE", 1),
-                buildPetType("DOG", "小狗", "活泼又忠诚的小狗", "BROWN", 2),
-                buildPetType("RABBIT", "小白兔", "温柔可爱的小白兔", "WHITE", 3),
-                buildPetType("DINOSAUR", "小恐龙", "勇敢又特别的小恐龙", "GREEN", 4)
+                buildPetType("RABBIT", "小白兔", "温柔可爱的小白兔", "WHITE", 1),
+                buildPetType("DINOSAUR", "小恐龙", "勇敢又特别的小恐龙", "GREEN", 2),
+                buildPetType("ANGELWOMON", "天女兽", "温柔又闪耀的天使系伙伴", "GOLD", 3),
+                buildPetType("ANGEMON", "天使兽", "正直又可靠的神圣系伙伴", "GOLD", 4)
         );
     }
 
@@ -721,18 +753,18 @@ public class PetService {
 
     private List<PetColorConfig> getDefaultPetColors() {
         return List.of(
-                buildPetColor("CAT", "ORANGE", "橘色", "#F6A23A", "cat_orange", 1),
-                buildPetColor("CAT", "WHITE", "白色", "#FFFFFF", "cat_white", 2),
-                buildPetColor("CAT", "GRAY", "灰色", "#BFC3C7", "cat_gray", 3),
-                buildPetColor("DOG", "BROWN", "棕色", "#A66A3F", "dog_brown", 1),
-                buildPetColor("DOG", "WHITE", "白色", "#FFFFFF", "dog_white", 2),
-                buildPetColor("DOG", "YELLOW", "黄色", "#F4D03F", "dog_yellow", 3),
                 buildPetColor("RABBIT", "WHITE", "白色", "#FFFFFF", "rabbit_white", 1),
                 buildPetColor("RABBIT", "PINK", "粉色", "#FFB6C1", "rabbit_pink", 2),
                 buildPetColor("RABBIT", "GRAY", "灰色", "#BFC3C7", "rabbit_gray", 3),
                 buildPetColor("DINOSAUR", "GREEN", "绿色", "#67C23A", "dinosaur_green", 1),
                 buildPetColor("DINOSAUR", "BLUE", "蓝色", "#409EFF", "dinosaur_blue", 2),
-                buildPetColor("DINOSAUR", "PURPLE", "紫色", "#9B59B6", "dinosaur_purple", 3)
+                buildPetColor("DINOSAUR", "PURPLE", "紫色", "#9B59B6", "dinosaur_purple", 3),
+                buildPetColor("ANGELWOMON", "GOLD", "金色", "#F6C85F", "angelwomon_gold", 1),
+                buildPetColor("ANGELWOMON", "WHITE", "白色", "#FFFFFF", "angelwomon_white", 2),
+                buildPetColor("ANGELWOMON", "PINK", "粉色", "#FF9ECF", "angelwomon_pink", 3),
+                buildPetColor("ANGEMON", "GOLD", "金色", "#F6C85F", "angemon_gold", 1),
+                buildPetColor("ANGEMON", "WHITE", "白色", "#FFFFFF", "angemon_white", 2),
+                buildPetColor("ANGEMON", "BLUE", "蓝色", "#7DB9FF", "angemon_blue", 3)
         );
     }
 
@@ -796,8 +828,20 @@ public class PetService {
             case 4 -> "成熟期";
             default -> "完全体";
         });
-        stage.setMinLevel((stageNo - 1) * 20 + 1);
-        stage.setMaxLevel(stageNo * 20);
+        stage.setMinLevel(switch (stageNo) {
+            case 1 -> 1;
+            case 2 -> 6;
+            case 3 -> 16;
+            case 4 -> 31;
+            default -> 51;
+        });
+        stage.setMaxLevel(switch (stageNo) {
+            case 1 -> 5;
+            case 2 -> 15;
+            case 3 -> 30;
+            case 4 -> 50;
+            default -> 70;
+        });
         stage.setAssetKey(baseAssetKey + "_stage_" + stageNo);
         stage.setPreviewAssetKey(baseAssetKey + "_stage_" + stageNo + "_preview");
         stage.setDescription(switch (stageNo) {

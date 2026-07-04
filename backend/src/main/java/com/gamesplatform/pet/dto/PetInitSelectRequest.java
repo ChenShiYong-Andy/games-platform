@@ -15,9 +15,8 @@ public class PetInitSelectRequest {
     @NotBlank(message = "宠物类型不能为空")
     private String petType;
     /**
-     * 颜色编码。
+     * 颜色编码。未传时使用宠物类型默认颜色。
      */
-    @NotBlank(message = "颜色不能为空")
     private String colorCode;
     /**
      * 宠物名称。
