@@ -65,10 +65,6 @@ public class User {
      */
     private Integer sudokuDailyLimit;
     /**
-     * 每日动物园照料次数上限。
-     */
-    private Integer zooDailyCareLimit;
-    /**
      * 创建时间。
      */
     private LocalDateTime createdAt;

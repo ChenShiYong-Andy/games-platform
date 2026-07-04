@@ -32,11 +32,6 @@ public class AchievementService {
      */
     public static final String GAME_SUDOKU = "SUDOKU";
     /**
-     * 动物园游戏编码。
-     */
-    public static final String GAME_ZOO = "ZOO";
-
-    /**
      * 成就数据访问组件。
      */
     private final AchievementMapper achievementMapper;
@@ -62,6 +57,7 @@ public class AchievementService {
         if (gameCode != null && !gameCode.isBlank()) {
             achievementQuery.eq(Achievement::getGameCode, gameCode.toUpperCase());
         }
+        achievementQuery.ne(Achievement::getGameCode, "ZOO");
         achievementQuery.orderByAsc(Achievement::getGameCode).orderByAsc(Achievement::getId);
         List<Achievement> all = achievementMapper.selectList(achievementQuery);
         List<UserAchievement> unlocked = userAchievementMapper.selectList(
@@ -139,16 +135,4 @@ public class AchievementService {
         if ("HARD".equalsIgnoreCase(difficulty)) unlockAchievement(userId, gameCode, "HARD_CLEAR");
     }
 
-    /**
-     * 检查动物园累计照料成就。
-     *
-     * @param userId 用户 ID。
-     * @param totalCares 累计照料次数。
-     */
-    public void checkZooCare(Long userId, long totalCares) {
-        if (totalCares == 1) unlockAchievement(userId, GAME_ZOO, "FIRST_CARE");
-        if (totalCares >= 10) unlockAchievement(userId, GAME_ZOO, "CARE_10");
-        if (totalCares >= 50) unlockAchievement(userId, GAME_ZOO, "CARE_50");
-        if (totalCares >= 100) unlockAchievement(userId, GAME_ZOO, "CARE_100");
-    }
 }

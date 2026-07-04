@@ -7,7 +7,7 @@ import { ElMessage } from 'element-plus'
 
 const authStore = useAuthStore()
 const form = ref({ nickname: '', email: '', avatarUrl: '' })
-const gameConfig = ref({ sudokuDailyLimit: 5, zooDailyCareLimit: 3 })
+const gameConfig = ref({ sudokuDailyLimit: 5 })
 const transactions = ref<PointTransaction[]>([])
 const saving = ref(false)
 const savingGameConfig = ref(false)
@@ -19,7 +19,6 @@ onMounted(async () => {
     form.value.email = user.email || ''
     form.value.avatarUrl = user.avatarUrl || ''
     gameConfig.value.sudokuDailyLimit = user.sudokuDailyLimit || 5
-    gameConfig.value.zooDailyCareLimit = user.zooDailyCareLimit || 3
   }
   try {
     transactions.value = await getData<PointTransaction[]>('/points/transactions', { limit: 10 })
@@ -86,9 +85,6 @@ async function saveGameConfig() {
           <el-form label-width="140px">
             <el-form-item label="每日数独次数">
               <el-input-number v-model="gameConfig.sudokuDailyLimit" :min="1" :max="100" />
-            </el-form-item>
-            <el-form-item label="每日动物园照顾次数">
-              <el-input-number v-model="gameConfig.zooDailyCareLimit" :min="1" :max="1000" />
             </el-form-item>
             <el-form-item>
               <el-button type="primary" :loading="savingGameConfig" @click="saveGameConfig">保存配置</el-button>

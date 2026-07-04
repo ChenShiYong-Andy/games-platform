@@ -8,8 +8,6 @@ import com.gamesplatform.ranking.service.RankingService;
 import com.gamesplatform.user.dto.*;
 import com.gamesplatform.user.entity.User;
 import com.gamesplatform.user.mapper.UserMapper;
-import com.gamesplatform.zoo.entity.ZooCareRecord;
-import com.gamesplatform.zoo.mapper.ZooCareRecordMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -30,26 +28,14 @@ public class UserService {
      */
     private static final int DEFAULT_SUDOKU_DAILY_LIMIT = 5;
     /**
-     * 默认每日动物园照料次数上限。
-     */
-    private static final int DEFAULT_ZOO_DAILY_CARE_LIMIT = 10;
-    /**
      * 每日数独次数最大上限。
      */
     private static final int MAX_SUDOKU_DAILY_LIMIT = 100;
-    /**
-     * 每日动物园照料次数最大上限。
-     */
-    private static final int MAX_ZOO_DAILY_CARE_LIMIT = 1000;
 
     /**
      * 用户数据访问组件。
      */
     private final UserMapper userMapper;
-    /**
-     * 动物园照料记录数据访问组件。
-     */
-    private final ZooCareRecordMapper zooCareRecordMapper;
     /**
      * 密码编码器。
      */
@@ -90,7 +76,6 @@ public class UserService {
         user.setLoginStreak(0);
         user.setTotalClears(0);
         user.setSudokuDailyLimit(DEFAULT_SUDOKU_DAILY_LIMIT);
-        user.setZooDailyCareLimit(DEFAULT_ZOO_DAILY_CARE_LIMIT);
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
         userMapper.insert(user);
@@ -161,12 +146,6 @@ public class UserService {
             }
             user.setSudokuDailyLimit(request.getSudokuDailyLimit());
         }
-        if (request.getZooDailyCareLimit() != null) {
-            if (request.getZooDailyCareLimit() < 1 || request.getZooDailyCareLimit() > MAX_ZOO_DAILY_CARE_LIMIT) {
-                throw new BusinessException("每日动物园照顾次数上限必须在 1 到 1000 之间");
-            }
-            user.setZooDailyCareLimit(request.getZooDailyCareLimit());
-        }
         user.setUpdatedAt(LocalDateTime.now());
         userMapper.updateById(user);
         return toProfile(user);
@@ -236,15 +215,9 @@ public class UserService {
                 .totalPoints(user.getTotalPoints())
                 .loginStreak(user.getLoginStreak())
                 .totalClears(user.getTotalClears())
-                .totalZooCares(zooCareRecordMapper.selectCount(
-                        new LambdaQueryWrapper<ZooCareRecord>()
-                                .eq(ZooCareRecord::getUserId, user.getId())))
                 .sudokuDailyLimit(user.getSudokuDailyLimit() != null
                         ? user.getSudokuDailyLimit()
                         : DEFAULT_SUDOKU_DAILY_LIMIT)
-                .zooDailyCareLimit(user.getZooDailyCareLimit() != null
-                        ? user.getZooDailyCareLimit()
-                        : DEFAULT_ZOO_DAILY_CARE_LIMIT)
                 .build();
     }
 }

@@ -5,6 +5,7 @@ import com.gamesplatform.points.dto.PointTransactionResponse;
 import com.gamesplatform.points.entity.PointTransaction;
 import com.gamesplatform.points.mapper.PointTransactionMapper;
 import com.gamesplatform.ranking.service.RankingService;
+import com.gamesplatform.common.BusinessException;
 import com.gamesplatform.user.entity.User;
 import com.gamesplatform.user.mapper.UserMapper;
 import com.gamesplatform.user.service.UserService;
@@ -84,6 +85,34 @@ public class PointsService {
             return 0;
         }
         return changePoints(user, -deduction, type, sourceId, description);
+    }
+
+    /**
+     * 严格扣除积分，积分不足时直接失败。
+     *
+     * @param userId 用户 ID。
+     * @param amount 扣除积分。
+     * @param type 类型。
+     * @param sourceId 来源业务 ID。
+     * @param description 描述。
+     * @return 扣除后的可用积分。
+     */
+    @Transactional
+    public int consumePoints(Long userId, int amount, String type, Long sourceId, String description) {
+        if (amount <= 0) {
+            return userService.getUserById(userId).getTotalPoints();
+        }
+        User user = userMapper.selectOne(
+                new LambdaQueryWrapper<User>()
+                        .eq(User::getId, userId)
+                        .last("FOR UPDATE"));
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
+        if (user.getTotalPoints() == null || user.getTotalPoints() < amount) {
+            throw new BusinessException(40003, "用户积分不足");
+        }
+        return changePoints(user, -amount, type, sourceId, description);
     }
 
     private int changePoints(Long userId, int amount, String type, Long sourceId, String description) {

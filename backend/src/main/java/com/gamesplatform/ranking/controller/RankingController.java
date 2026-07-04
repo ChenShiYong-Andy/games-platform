@@ -59,15 +59,4 @@ public class RankingController {
         return ApiResponse.success(rankingService.getSudokuSpeedRanking(difficulty, limit));
     }
 
-    /**
-     * 查询动物园平均完成时长排行榜。
-     *
-     * @param limit 查询数量上限。
-     * @return 处理结果。
-     */
-    @GetMapping("/zoo-average-duration")
-    public ApiResponse<List<RankingEntry>> getZooAverageDurationRanking(
-            @RequestParam(defaultValue = "50") int limit) {
-        return ApiResponse.success(rankingService.getZooAverageDurationRanking(limit));
-    }
 }

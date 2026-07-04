@@ -47,15 +47,7 @@ public class UserProfileResponse {
      */
     private Integer totalClears;
     /**
-     * 累计动物园照料次数。
-     */
-    private Long totalZooCares;
-    /**
      * 每日数独次数上限。
      */
     private Integer sudokuDailyLimit;
-    /**
-     * 每日动物园照料次数上限。
-     */
-    private Integer zooDailyCareLimit;
 }

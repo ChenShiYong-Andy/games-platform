@@ -43,7 +43,7 @@ backend/src/main/java/com/gamesplatform/
 │   ├── engine/      # GameEngine 接口 + SudokuGameEngine 实现 + SudokuGenerator
 │   └── domain/      # GameSession, GameResult, GameSubmitCommand (通用领域对象)
 ├── sudoku/          # 数独 HTTP 层 (SudokuController, SudokuService, SudokuGameMapper)
-├── zoo/             # 动物园管理员 (ZooController, ZooService, ZooGameMapper, ZooCareRecordMapper)
+├── pet/             # 宠物养成与积分兑换 (PetController, PetService, 权益/背包/订单 Mapper)
 ├── points/          # 积分流水 (PointsController, PointsService, PointTransactionMapper)
 ├── ranking/         # 排行榜 (RankingController, RankingService)
 └── achievement/     # 成就系统 (AchievementController, AchievementService, 双表 Mapper)
@@ -62,7 +62,7 @@ backend/src/main/java/com/gamesplatform/
 / (MainLayout)                # 需认证
   /                           # HomeView（游戏大厅）
   /games/sudoku, /games/sudoku/play
-  /games/zoo                  # ZooKeeperView
+  /games/pet                  # PetView
   /profile, /ranking, /achievements
 ```
 
@@ -76,7 +76,7 @@ backend/src/main/java/com/gamesplatform/
 
 ### 持久化与 Redis
 
-- MySQL: 用户、游戏记录、积分流水、成就。`sql/init.sql` 初始化库表，`sql/upgrade_20260601.sql` 增量升级（添加 daily limit 列、zoo 相关表、成就扩展 game_code）。
+- MySQL: 用户、游戏记录、积分流水、成就、宠物权益。`sql/init.sql` 初始化库表，`sql/upgrade_20260601.sql` 增量升级（添加 daily limit 列、成就扩展 game_code），`sql/upgrade_20260704.sql` 移除动物园相关表和字段，并创建宠物养成、首次领养、颜色和成长阶段相关表与默认配置。
 - Redis: `spring-boot-starter-data-redis` 已引入，当前主要用于缓存和会话管理。
 
 ### 部署架构

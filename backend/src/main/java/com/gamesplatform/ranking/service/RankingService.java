@@ -35,19 +35,6 @@ public class RankingService {
      */
     private static final String SUDOKU_SPEED_PREFIX = "ranking:sudoku_speed:";
     /**
-     * 动物园平均完成时长排行榜 Redis 键。
-     */
-    private static final String ZOO_AVERAGE_DURATION_KEY = "ranking:zoo_average_duration";
-    /**
-     * 动物园累计完成时长 Redis 键。
-     */
-    private static final String ZOO_TOTAL_DURATION_KEY = "ranking:zoo_total_duration";
-    /**
-     * 动物园累计完成局数 Redis 键。
-     */
-    private static final String ZOO_COMPLETION_COUNT_KEY = "ranking:zoo_completion_count";
-
-    /**
      * Redis 操作模板。
      */
     private final StringRedisTemplate redisTemplate;
@@ -95,22 +82,6 @@ public class RankingService {
     }
 
     /**
-     * 更新动物园平均完成时长排行榜。
-     *
-     * @param userId 用户 ID。
-     * @param elapsedSeconds 本局耗时秒数。
-     */
-    public void updateZooAverageDuration(Long userId, int elapsedSeconds) {
-        String member = String.valueOf(userId);
-        Long totalDuration = redisTemplate.opsForHash()
-                .increment(ZOO_TOTAL_DURATION_KEY, member, elapsedSeconds);
-        Long completionCount = redisTemplate.opsForHash()
-                .increment(ZOO_COMPLETION_COUNT_KEY, member, 1);
-        double averageDuration = (double) totalDuration / completionCount;
-        redisTemplate.opsForZSet().add(ZOO_AVERAGE_DURATION_KEY, member, averageDuration);
-    }
-
-    /**
      * 查询总积分排行榜。
      *
      * @param limit 查询数量上限。
@@ -139,16 +110,6 @@ public class RankingService {
      */
     public List<RankingEntry> getSudokuSpeedRanking(String difficulty, int limit) {
         return getRanking(SUDOKU_SPEED_PREFIX + difficulty.toUpperCase(), limit, true);
-    }
-
-    /**
-     * 查询动物园平均完成时长排行榜。
-     *
-     * @param limit 查询数量上限。
-     * @return 处理结果。
-     */
-    public List<RankingEntry> getZooAverageDurationRanking(int limit) {
-        return getRanking(ZOO_AVERAGE_DURATION_KEY, limit, true);
     }
 
     private List<RankingEntry> getRanking(String key, int limit, boolean ascending) {

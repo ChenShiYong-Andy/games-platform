@@ -11,9 +11,6 @@ function getGameStat(game: GameApp) {
   if (game.id === 'sudoku') {
     return { label: '通关次数', value: authStore.user?.totalClears ?? 0 }
   }
-  if (game.id === 'zoo-keeper') {
-    return { label: '照顾次数', value: authStore.user?.totalZooCares ?? 0 }
-  }
   return null
 }
 

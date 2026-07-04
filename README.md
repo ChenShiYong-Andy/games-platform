@@ -17,8 +17,9 @@
 - **用户中心** — 注册、登录、资料维护、头像管理
 - **认证中心** — JWT 认证、BCrypt 密码加密
 - **数独中心** — 创建游戏、难度选择、计时、校验、提示、撤销重做、结算、记录
+- **宠物养成** — 宠物状态、权益商店、积分兑换、背包使用、装扮切换
 - **积分中心** — 游戏积分奖励、流水记录、用户等级
-- **排行榜中心** — 总积分榜、本周积分榜、数独速度榜、动物园平均时长榜
+- **排行榜中心** — 总积分榜、本周积分榜、数独速度榜
 - **成就中心** — 首次通关、连续登录、通关次数、专家模式
 
 ## 部署流程（本地构建 → 推送镜像仓库）
@@ -203,9 +204,16 @@ V1.0 仅实现 `SudokuGameEngine`，未来可无缝接入新游戏。
 | POST | /api/sudoku/games | 创建数独游戏 |
 | POST | /api/sudoku/games/{id}/submit | 提交游戏 |
 | POST | /api/sudoku/games/{id}/hint | 获取提示 |
+| GET | /api/pet/profile | 查询我的宠物资料 |
+| GET | /api/pet/init/options | 查询首次领养选项 |
+| POST | /api/pet/init/select | 首次领养宠物 |
+| GET | /api/pet/home | 宠物首页 |
+| GET | /api/pet/benefit/list | 宠物权益列表 |
+| POST | /api/pet/benefit/exchange | 积分兑换宠物权益 |
+| GET | /api/pet/benefit/my | 我的宠物权益 |
+| POST | /api/pet/benefit/use | 使用宠物权益 |
 | GET | /api/ranking/total | 总积分排行榜 |
 | GET | /api/ranking/weekly | 本周积分排行榜 |
 | GET | /api/ranking/sudoku-speed | 数独速度排行榜 |
-| GET | /api/ranking/zoo-average-duration | 动物园平均完成时长排行榜 |
 | GET | /api/achievements | 成就列表 |
 | GET | /api/points/transactions | 积分流水 |

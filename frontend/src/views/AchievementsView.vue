@@ -7,8 +7,7 @@ const achievements = ref<Achievement[]>([])
 const loading = ref(true)
 const gameNames: Record<string, string> = {
   PLATFORM: '平台成就',
-  SUDOKU: '数独成就',
-  ZOO: '动物园成就'
+  SUDOKU: '数独成就'
 }
 const achievementGroups = computed(() => {
   return Object.entries(gameNames)
