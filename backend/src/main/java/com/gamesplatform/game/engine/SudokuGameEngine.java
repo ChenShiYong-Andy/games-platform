@@ -98,9 +98,24 @@ public class SudokuGameEngine implements GameEngine {
         return GameResult.builder()
                 .success(true)
                 .score(score)
-                .pointsEarned(score)
+                .pointsEarned(calculatePointsEarned(board.length))
                 .message("恭喜通关！")
                 .build();
+    }
+
+    /**
+     * 根据棋盘大小计算通关积分。
+     *
+     * @param gridSize 棋盘尺寸。
+     * @return 通关奖励积分。
+     */
+    private int calculatePointsEarned(int gridSize) {
+        return switch (gridSize) {
+            case 4 -> 1;
+            case 6 -> 3;
+            case 9 -> 5;
+            default -> 1;
+        };
     }
 
     /**

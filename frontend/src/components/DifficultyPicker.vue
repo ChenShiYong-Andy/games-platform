@@ -4,7 +4,7 @@ const difficulties = [
     value: 'EASY',
     label: '简单',
     desc: '4×4 小棋盘',
-    sub: '数字 1～4',
+    sub: '完成 +1 积分',
     icon: '🌱',
     bg: 'linear-gradient(145deg, #43a047 0%, #66bb6a 55%, #81c784 100%)',
     shadow: '0 8px 24px rgba(67, 160, 71, 0.35)'
@@ -13,7 +13,7 @@ const difficulties = [
     value: 'MEDIUM',
     label: '中等',
     desc: '6×6 棋盘',
-    sub: '数字 1～6',
+    sub: '完成 +3 积分',
     icon: '🌊',
     bg: 'linear-gradient(145deg, #1e88e5 0%, #42a5f5 55%, #64b5f6 100%)',
     shadow: '0 8px 24px rgba(30, 136, 229, 0.35)'
@@ -22,7 +22,7 @@ const difficulties = [
     value: 'HARD',
     label: '困难',
     desc: '9×9 标准棋盘',
-    sub: '空格较少',
+    sub: '完成 +5 积分',
     icon: '🔥',
     bg: 'linear-gradient(145deg, #ef6c00 0%, #ffa726 55%, #ffb74d 100%)',
     shadow: '0 8px 24px rgba(239, 108, 0, 0.35)'
