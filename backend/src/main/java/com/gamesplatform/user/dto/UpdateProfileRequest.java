@@ -20,8 +20,4 @@ public class UpdateProfileRequest {
      * 头像地址。
      */
     private String avatarUrl;
-    /**
-     * 每日数独次数上限。
-     */
-    private Integer sudokuDailyLimit;
 }

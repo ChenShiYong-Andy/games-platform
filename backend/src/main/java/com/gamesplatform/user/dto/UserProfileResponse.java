@@ -50,4 +50,8 @@ public class UserProfileResponse {
      * 每日数独次数上限。
      */
     private Integer sudokuDailyLimit;
+    /**
+     * 是否已设置管理密码。
+     */
+    private Boolean adminPasswordSet;
 }

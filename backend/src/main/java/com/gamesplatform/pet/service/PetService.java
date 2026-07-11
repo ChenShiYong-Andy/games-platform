@@ -35,6 +35,7 @@ public class PetService {
     private static final int ORDER_SUCCESS = 1;
     private static final int ORDER_FAILED = 2;
     private static final int MAX_LEVEL = 70;
+    private static final int INITIAL_PET_STATUS_VALUE = 50;
     private static final String POINT_TYPE_EXCHANGE = "PET_BENEFIT_EXCHANGE";
     private static final DateTimeFormatter ORDER_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
 
@@ -228,10 +229,10 @@ public class PetService {
         pet.setLevel(1);
         pet.setStageNo(1);
         pet.setExp(0);
-        pet.setHunger(100);
-        pet.setClean(100);
-        pet.setHappiness(100);
-        pet.setEnergy(100);
+        pet.setHunger(INITIAL_PET_STATUS_VALUE);
+        pet.setClean(INITIAL_PET_STATUS_VALUE);
+        pet.setHappiness(INITIAL_PET_STATUS_VALUE);
+        pet.setEnergy(INITIAL_PET_STATUS_VALUE);
         pet.setLoveValue(0);
         pet.setInitTime(now);
         pet.setCreateTime(now);

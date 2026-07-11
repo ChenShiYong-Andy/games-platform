@@ -28,11 +28,6 @@ public class UserService {
      */
     private static final int DEFAULT_SUDOKU_DAILY_LIMIT = 5;
     /**
-     * 每日数独次数最大上限。
-     */
-    private static final int MAX_SUDOKU_DAILY_LIMIT = 100;
-
-    /**
      * 用户数据访问组件。
      */
     private final UserMapper userMapper;
@@ -140,12 +135,6 @@ public class UserService {
         if (request.getAvatarUrl() != null) {
             user.setAvatarUrl(request.getAvatarUrl());
         }
-        if (request.getSudokuDailyLimit() != null) {
-            if (request.getSudokuDailyLimit() < 1 || request.getSudokuDailyLimit() > MAX_SUDOKU_DAILY_LIMIT) {
-                throw new BusinessException("每日数独次数上限必须在 1 到 100 之间");
-            }
-            user.setSudokuDailyLimit(request.getSudokuDailyLimit());
-        }
         user.setUpdatedAt(LocalDateTime.now());
         userMapper.updateById(user);
         return toProfile(user);
@@ -218,6 +207,7 @@ public class UserService {
                 .sudokuDailyLimit(user.getSudokuDailyLimit() != null
                         ? user.getSudokuDailyLimit()
                         : DEFAULT_SUDOKU_DAILY_LIMIT)
+                .adminPasswordSet(user.getAdminPasswordHash() != null && !user.getAdminPasswordHash().isBlank())
                 .build();
     }
 }

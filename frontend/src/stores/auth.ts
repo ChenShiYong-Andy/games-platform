@@ -48,7 +48,6 @@ export const useAuthStore = defineStore('auth', () => {
     nickname?: string
     email?: string
     avatarUrl?: string
-    sudokuDailyLimit?: number
   }) {
     const profile = await putData<UserProfile>('/user/profile', data)
     user.value = profile

@@ -29,6 +29,10 @@ public class User {
      */
     private String passwordHash;
     /**
+     * 管理密码哈希。
+     */
+    private String adminPasswordHash;
+    /**
      * 昵称。
      */
     private String nickname;

@@ -15,6 +15,7 @@ export interface UserProfile {
   loginStreak: number
   totalClears: number
   sudokuDailyLimit: number
+  adminPasswordSet: boolean
 }
 
 export interface AuthResponse {
