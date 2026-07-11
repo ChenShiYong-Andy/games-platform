@@ -71,6 +71,18 @@ public class PetController {
     }
 
     /**
+     * 宠物成长。
+     *
+     * @param authentication 当前认证信息。
+     * @return 处理结果。
+     */
+    @PostMapping("/grow")
+    public ApiResponse<PetInfoResponse> growPet(Authentication authentication) {
+        Long userId = (Long) authentication.getPrincipal();
+        return ApiResponse.success("成长成功", petService.growPet(userId));
+    }
+
+    /**
      * 查询宠物权益列表。
      *
      * @param authentication 当前认证信息。
@@ -97,7 +109,9 @@ public class PetController {
             Authentication authentication,
             @Valid @RequestBody PetExchangeRequest request) {
         Long userId = (Long) authentication.getPrincipal();
-        return ApiResponse.success("兑换成功", petService.exchangeBenefit(userId, request.getBenefitId()));
+        return ApiResponse.success(
+                "兑换成功",
+                petService.exchangeBenefit(userId, request.getBenefitId(), request.getQuantity()));
     }
 
     /**

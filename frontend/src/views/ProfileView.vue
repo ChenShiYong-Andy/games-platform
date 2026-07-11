@@ -12,16 +12,18 @@ interface AdminStatus {
 const authStore = useAuthStore()
 const form = ref({ nickname: '', email: '', avatarUrl: '' })
 const adminPasswordSet = ref(false)
-const adminPanel = ref<'game' | 'points' | ''>('')
+const adminPanel = ref<'sudoku' | 'points' | 'pet' | ''>('')
 const setPasswordVisible = ref(false)
 const adminPasswordForm = ref({ password: '' })
 const gameConfig = ref({ sudokuDailyLimit: 5, adminPassword: '' })
 const pointsForm = ref({ amount: 0, description: '', adminPassword: '' })
+const petConfig = ref({ amount: 0, adminPassword: '' })
 const transactions = ref<PointTransaction[]>([])
 const saving = ref(false)
 const settingPassword = ref(false)
 const savingGameConfig = ref(false)
 const adjustingPoints = ref(false)
+const adjustingPetGrowth = ref(false)
 
 onMounted(async () => {
   const user = authStore.user
@@ -96,7 +98,7 @@ async function saveGameConfig() {
     authStore.user = profile
     localStorage.setItem('user', JSON.stringify(profile))
     gameConfig.value.adminPassword = ''
-    ElMessage.success('游戏配置已更新')
+    ElMessage.success('数独配置已更新')
   } catch (e: unknown) {
     ElMessage.error(e instanceof Error ? e.message : '更新失败')
   } finally {
@@ -125,6 +127,27 @@ async function adjustPoints() {
     ElMessage.error(e instanceof Error ? e.message : '调整失败')
   } finally {
     adjustingPoints.value = false
+  }
+}
+
+async function deductPetGrowth() {
+  if (!petConfig.value.adminPassword) {
+    ElMessage.info('请输入管理密码')
+    return
+  }
+  if (!petConfig.value.amount || petConfig.value.amount < 1) {
+    ElMessage.info('请输入要扣减的成长值')
+    return
+  }
+  adjustingPetGrowth.value = true
+  try {
+    await postData<string>('/admin/config/pet/growth/deduct', petConfig.value)
+    petConfig.value = { amount: 0, adminPassword: '' }
+    ElMessage.success('宠物成长值已扣减')
+  } catch (e: unknown) {
+    ElMessage.error(e instanceof Error ? e.message : '扣减失败')
+  } finally {
+    adjustingPetGrowth.value = false
   }
 }
 </script>
@@ -165,20 +188,24 @@ async function adjustPoints() {
           </div>
           <template v-else>
             <div class="admin-entry-grid">
-              <button class="admin-entry" :class="{ active: adminPanel === 'game' }" @click="adminPanel = 'game'">
-                <strong>游戏配置</strong>
-                <span>配置每日游戏次数</span>
+              <button class="admin-entry" :class="{ active: adminPanel === 'sudoku' }" @click="adminPanel = 'sudoku'">
+                <strong>数独配置</strong>
+                <span>配置每日数独次数</span>
               </button>
               <button class="admin-entry" :class="{ active: adminPanel === 'points' }" @click="adminPanel = 'points'">
                 <strong>积分调整</strong>
                 <span>手动增加或扣减积分</span>
               </button>
+              <button class="admin-entry" :class="{ active: adminPanel === 'pet' }" @click="adminPanel = 'pet'">
+                <strong>宠物配置</strong>
+                <span>扣减宠物成长值</span>
+              </button>
             </div>
 
-            <div v-if="adminPanel === 'game'" class="admin-panel">
+            <div v-if="adminPanel === 'sudoku'" class="admin-panel">
               <el-form label-width="140px">
                 <el-form-item label="每日数独次数">
-                  <el-input-number v-model="gameConfig.sudokuDailyLimit" :min="1" :max="100" />
+                  <el-input-number v-model="gameConfig.sudokuDailyLimit" :min="1" :max="50" />
                 </el-form-item>
                 <el-form-item label="管理密码">
                   <el-input v-model="gameConfig.adminPassword" type="password" show-password />
@@ -202,6 +229,20 @@ async function adjustPoints() {
                 </el-form-item>
                 <el-form-item>
                   <el-button type="primary" :loading="adjustingPoints" @click="adjustPoints">提交调整</el-button>
+                </el-form-item>
+              </el-form>
+            </div>
+
+            <div v-if="adminPanel === 'pet'" class="admin-panel">
+              <el-form label-width="140px">
+                <el-form-item label="扣减成长值">
+                  <el-input-number v-model="petConfig.amount" :min="1" :max="100000" />
+                </el-form-item>
+                <el-form-item label="管理密码">
+                  <el-input v-model="petConfig.adminPassword" type="password" show-password />
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="primary" :loading="adjustingPetGrowth" @click="deductPetGrowth">提交扣减</el-button>
                 </el-form-item>
               </el-form>
             </div>

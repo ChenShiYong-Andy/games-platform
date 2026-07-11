@@ -2,6 +2,7 @@ package com.gamesplatform.admin.controller;
 
 import com.gamesplatform.admin.dto.AdminConfigStatusResponse;
 import com.gamesplatform.admin.dto.AdminGameConfigRequest;
+import com.gamesplatform.admin.dto.AdminPetGrowthAdjustRequest;
 import com.gamesplatform.admin.dto.AdminPointsAdjustRequest;
 import com.gamesplatform.admin.dto.SetAdminPasswordRequest;
 import com.gamesplatform.admin.service.AdminConfigService;
@@ -70,6 +71,22 @@ public class AdminConfigController {
             @Valid @RequestBody AdminGameConfigRequest request) {
         Long userId = (Long) authentication.getPrincipal();
         return ApiResponse.success(adminConfigService.updateGameConfig(userId, request));
+    }
+
+    /**
+     * 扣减宠物成长值。
+     *
+     * @param authentication 当前认证信息。
+     * @param request 请求参数。
+     * @return 处理结果。
+     */
+    @PostMapping("/pet/growth/deduct")
+    public ApiResponse<String> deductPetGrowth(
+            Authentication authentication,
+            @Valid @RequestBody AdminPetGrowthAdjustRequest request) {
+        Long userId = (Long) authentication.getPrincipal();
+        adminConfigService.deductPetGrowth(userId, request);
+        return ApiResponse.success("扣减成功");
     }
 
     /**

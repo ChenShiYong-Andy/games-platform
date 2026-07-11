@@ -48,6 +48,10 @@ public class PetBenefitExchangeOrder {
      */
     private Integer costPoints;
     /**
+     * 兑换数量。
+     */
+    private Integer quantity;
+    /**
      * 状态。
      */
     private Integer status;

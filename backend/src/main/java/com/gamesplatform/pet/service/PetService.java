@@ -36,6 +36,10 @@ public class PetService {
     private static final int ORDER_FAILED = 2;
     private static final int MAX_LEVEL = 70;
     private static final int INITIAL_PET_STATUS_VALUE = 50;
+    private static final int BENEFIT_STATUS_ADD_VALUE = 5;
+    private static final int GROW_STATUS_COST = 10;
+    private static final int GROW_STATUS_MIN = 20;
+    private static final int GROW_EXP_ADD_VALUE = 8;
     private static final String POINT_TYPE_EXCHANGE = "PET_BENEFIT_EXCHANGE";
     private static final DateTimeFormatter ORDER_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
 
@@ -260,6 +264,31 @@ public class PetService {
     }
 
     /**
+     * 宠物成长。
+     *
+     * @param userId 用户 ID。
+     * @return 处理结果。
+     */
+    @Transactional
+    public PetInfoResponse growPet(Long userId) {
+        PetUser pet = requirePetForUpdate(userId);
+        if (pet.getHunger() < GROW_STATUS_MIN
+                || pet.getClean() < GROW_STATUS_MIN
+                || pet.getHappiness() < GROW_STATUS_MIN
+                || pet.getEnergy() < GROW_STATUS_MIN) {
+            throw new BusinessException("饥饿、清洁、快乐、体力任意一项低于20%，成长失败");
+        }
+        pet.setHunger(Math.max(0, pet.getHunger() - GROW_STATUS_COST));
+        pet.setClean(Math.max(0, pet.getClean() - GROW_STATUS_COST));
+        pet.setHappiness(Math.max(0, pet.getHappiness() - GROW_STATUS_COST));
+        pet.setEnergy(Math.max(0, pet.getEnergy() - GROW_STATUS_COST));
+        addExp(pet, GROW_EXP_ADD_VALUE);
+        pet.setUpdateTime(LocalDateTime.now());
+        petUserMapper.updateById(pet);
+        return toPetInfo(pet);
+    }
+
+    /**
      * 查询宠物权益列表。
      *
      * @param userId 用户 ID。
@@ -289,11 +318,16 @@ public class PetService {
      *
      * @param userId 用户 ID。
      * @param benefitId 权益 ID。
+     * @param quantity 兑换数量。
      * @return 处理结果。
      */
     @Transactional(noRollbackFor = BusinessException.class)
-    public PetExchangeResponse exchangeBenefit(Long userId, Long benefitId) {
+    public PetExchangeResponse exchangeBenefit(Long userId, Long benefitId, Integer quantity) {
         requirePet(userId);
+        int exchangeQuantity = quantity == null ? 1 : quantity;
+        if (exchangeQuantity < 1 || exchangeQuantity > 100) {
+            throw new BusinessException("兑换数量必须在 1 到 100 之间");
+        }
         PetBenefitConfig config = benefitConfigMapper.selectOne(
                 new LambdaQueryWrapper<PetBenefitConfig>()
                         .eq(PetBenefitConfig::getId, benefitId)
@@ -301,21 +335,23 @@ public class PetService {
         if (config == null) {
             throw new BusinessException(40001, "权益不存在");
         }
-        validateExchange(userId, config);
+        validateExchange(userId, config, exchangeQuantity);
 
         String orderNo = generateOrderNo(userId);
-        PetBenefitExchangeOrder order = createOrder(userId, config, orderNo);
+        PetBenefitExchangeOrder order = createOrder(userId, config, orderNo, exchangeQuantity);
         exchangeOrderMapper.insert(order);
 
         try {
+            int totalCostPoints = config.getCostPoints() * exchangeQuantity;
             int availablePoints = pointsService.consumePoints(
                     userId,
-                    config.getCostPoints(),
+                    totalCostPoints,
                     POINT_TYPE_EXCHANGE,
                     order.getId(),
-                    "消耗" + config.getCostPoints() + "积分兑换" + config.getBenefitName() + "，订单号：" + orderNo);
-            PetUserBenefit userBenefit = grantBenefit(userId, config);
-            reduceStock(config);
+                    "消耗" + totalCostPoints + "积分兑换" + config.getBenefitName()
+                            + " x" + exchangeQuantity + "，订单号：" + orderNo);
+            PetUserBenefit userBenefit = grantBenefit(userId, config, exchangeQuantity);
+            reduceStock(config, exchangeQuantity);
 
             order.setStatus(ORDER_SUCCESS);
             order.setUpdateTime(LocalDateTime.now());
@@ -327,7 +363,7 @@ public class PetService {
                     .benefitCode(config.getBenefitCode())
                     .benefitName(config.getBenefitName())
                     .benefitType(config.getBenefitType())
-                    .costPoints(config.getCostPoints())
+                    .costPoints(totalCostPoints)
                     .availablePoints(availablePoints)
                     .quantity(userBenefit.getQuantity())
                     .build();
@@ -390,6 +426,9 @@ public class PetService {
         if (config == null) {
             throw new BusinessException("权益配置不存在");
         }
+        if (!Integer.valueOf(1).equals(config.getEnabled())) {
+            throw new BusinessException("权益已下架");
+        }
         PetUser pet = applyBenefitEffect(userId, config);
 
         int remainingQuantity = userBenefit.getQuantity();
@@ -418,46 +457,57 @@ public class PetService {
                 .build();
     }
 
-    private void validateExchange(Long userId, PetBenefitConfig config) {
+    private void validateExchange(Long userId, PetBenefitConfig config, int quantity) {
         if (!Integer.valueOf(1).equals(config.getEnabled())) {
             throw new BusinessException(40002, "权益已下架");
+        }
+        if (TYPE_PERMANENT.equals(config.getBenefitType()) && quantity != 1) {
+            throw new BusinessException("永久权益一次只能兑换 1 个");
         }
         if (TYPE_PERMANENT.equals(config.getBenefitType()) && hasAvailableBenefit(userId, config.getId())) {
             throw new BusinessException(40004, "已拥有该权益");
         }
-        if (config.getStock() != null && config.getStock() <= 0) {
+        if (config.getStock() != null && config.getStock() < quantity) {
             throw new BusinessException(40005, "库存不足");
         }
-        checkExchangeLimit(userId, config);
+        if (!TYPE_CONSUMABLE.equals(config.getBenefitType())) {
+            checkExchangeLimit(userId, config, quantity);
+        }
     }
 
-    private void checkExchangeLimit(Long userId, PetBenefitConfig config) {
+    private void checkExchangeLimit(Long userId, PetBenefitConfig config, int quantity) {
         if (config.getExchangeLimitDay() != null) {
             LocalDate today = LocalDate.now();
-            Long todayCount = exchangeOrderMapper.selectCount(
+            List<PetBenefitExchangeOrder> todayOrders = exchangeOrderMapper.selectList(
                     new LambdaQueryWrapper<PetBenefitExchangeOrder>()
                             .eq(PetBenefitExchangeOrder::getUserId, userId)
                             .eq(PetBenefitExchangeOrder::getBenefitId, config.getId())
                             .eq(PetBenefitExchangeOrder::getStatus, ORDER_SUCCESS)
                             .ge(PetBenefitExchangeOrder::getCreateTime, today.atStartOfDay())
                             .lt(PetBenefitExchangeOrder::getCreateTime, today.plusDays(1).atStartOfDay()));
-            if (todayCount >= config.getExchangeLimitDay()) {
+            int todayQuantity = todayOrders.stream()
+                    .mapToInt(order -> order.getQuantity() != null ? order.getQuantity() : 1)
+                    .sum();
+            if (todayQuantity + quantity > config.getExchangeLimitDay()) {
                 throw new BusinessException(40006, "已达到今日兑换上限");
             }
         }
         if (config.getExchangeLimitTotal() != null) {
-            Long totalCount = exchangeOrderMapper.selectCount(
+            List<PetBenefitExchangeOrder> totalOrders = exchangeOrderMapper.selectList(
                     new LambdaQueryWrapper<PetBenefitExchangeOrder>()
                             .eq(PetBenefitExchangeOrder::getUserId, userId)
                             .eq(PetBenefitExchangeOrder::getBenefitId, config.getId())
                             .eq(PetBenefitExchangeOrder::getStatus, ORDER_SUCCESS));
-            if (totalCount >= config.getExchangeLimitTotal()) {
+            int totalQuantity = totalOrders.stream()
+                    .mapToInt(order -> order.getQuantity() != null ? order.getQuantity() : 1)
+                    .sum();
+            if (totalQuantity + quantity > config.getExchangeLimitTotal()) {
                 throw new BusinessException("已达到总兑换上限");
             }
         }
     }
 
-    private PetUserBenefit grantBenefit(Long userId, PetBenefitConfig config) {
+    private PetUserBenefit grantBenefit(Long userId, PetBenefitConfig config, int quantity) {
         LocalDateTime now = LocalDateTime.now();
         PetUserBenefit userBenefit = userBenefitMapper.selectOne(
                 new LambdaQueryWrapper<PetUserBenefit>()
@@ -466,7 +516,7 @@ public class PetService {
                         .eq(PetUserBenefit::getStatus, STATUS_AVAILABLE)
                         .last("FOR UPDATE"));
         if (TYPE_CONSUMABLE.equals(config.getBenefitType()) && userBenefit != null) {
-            userBenefit.setQuantity(userBenefit.getQuantity() + 1);
+            userBenefit.setQuantity(userBenefit.getQuantity() + quantity);
             userBenefit.setUpdateTime(now);
             userBenefitMapper.updateById(userBenefit);
             return userBenefit;
@@ -481,7 +531,7 @@ public class PetService {
         userBenefit.setBenefitCode(config.getBenefitCode());
         userBenefit.setBenefitName(config.getBenefitName());
         userBenefit.setBenefitType(config.getBenefitType());
-        userBenefit.setQuantity(1);
+        userBenefit.setQuantity(quantity);
         userBenefit.setStatus(STATUS_AVAILABLE);
         userBenefit.setCreateTime(now);
         userBenefit.setUpdateTime(now);
@@ -489,22 +539,22 @@ public class PetService {
         return userBenefit;
     }
 
-    private void reduceStock(PetBenefitConfig config) {
+    private void reduceStock(PetBenefitConfig config, int quantity) {
         if (config.getStock() == null) {
             return;
         }
-        config.setStock(config.getStock() - 1);
+        config.setStock(config.getStock() - quantity);
         config.setUpdateTime(LocalDateTime.now());
         benefitConfigMapper.updateById(config);
     }
 
     private PetUser applyBenefitEffect(Long userId, PetBenefitConfig config) {
-        PetUser pet = requirePet(userId);
+        PetUser pet = requirePetForUpdate(userId);
         switch (config.getEffectType()) {
-            case "HUNGER_FULL" -> pet.setHunger(100);
-            case "CLEAN_FULL" -> pet.setClean(100);
-            case "HAPPINESS_FULL" -> pet.setHappiness(100);
-            case "ENERGY_FULL" -> pet.setEnergy(100);
+            case "HUNGER_FULL" -> pet.setHunger(addStatusValue(pet.getHunger(), config.getEffectValue()));
+            case "CLEAN_FULL" -> pet.setClean(addStatusValue(pet.getClean(), config.getEffectValue()));
+            case "HAPPINESS_FULL" -> pet.setHappiness(addStatusValue(pet.getHappiness(), config.getEffectValue()));
+            case "ENERGY_FULL" -> pet.setEnergy(addStatusValue(pet.getEnergy(), config.getEffectValue()));
             case "EXP_ADD" -> addExp(pet, config.getEffectValue() != null ? config.getEffectValue() : 0);
             case "HAT_UNLOCK" -> pet.setCurrentHatCode(config.getBenefitCode());
             case "BED_UNLOCK" -> pet.setCurrentBedCode(config.getBenefitCode());
@@ -514,6 +564,12 @@ public class PetService {
         pet.setUpdateTime(LocalDateTime.now());
         petUserMapper.updateById(pet);
         return pet;
+    }
+
+    private int addStatusValue(Integer currentValue, Integer effectValue) {
+        int current = currentValue != null ? currentValue : 0;
+        int addValue = effectValue != null ? effectValue : BENEFIT_STATUS_ADD_VALUE;
+        return Math.min(100, current + addValue);
     }
 
     private void addExp(PetUser pet, int addValue) {
@@ -559,7 +615,22 @@ public class PetService {
         return pet;
     }
 
-    private PetBenefitExchangeOrder createOrder(Long userId, PetBenefitConfig config, String orderNo) {
+    private PetUser requirePetForUpdate(Long userId) {
+        PetUser pet = petUserMapper.selectOne(
+                new LambdaQueryWrapper<PetUser>()
+                        .eq(PetUser::getUserId, userId)
+                        .last("FOR UPDATE"));
+        if (pet == null) {
+            throw new BusinessException("请先领养宠物");
+        }
+        return pet;
+    }
+
+    private PetBenefitExchangeOrder createOrder(
+            Long userId,
+            PetBenefitConfig config,
+            String orderNo,
+            int quantity) {
         LocalDateTime now = LocalDateTime.now();
         PetBenefitExchangeOrder order = new PetBenefitExchangeOrder();
         order.setOrderNo(orderNo);
@@ -568,7 +639,8 @@ public class PetService {
         order.setBenefitCode(config.getBenefitCode());
         order.setBenefitName(config.getBenefitName());
         order.setBenefitType(config.getBenefitType());
-        order.setCostPoints(config.getCostPoints());
+        order.setCostPoints(config.getCostPoints() * quantity);
+        order.setQuantity(quantity);
         order.setStatus(ORDER_PROCESSING);
         order.setCreateTime(now);
         order.setUpdateTime(now);

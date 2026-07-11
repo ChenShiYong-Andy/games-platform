@@ -22,6 +22,7 @@ const loading = ref(false)
 const adopting = ref(false)
 const exchangingId = ref<number | null>(null)
 const usingId = ref<number | null>(null)
+const growing = ref(false)
 const hasPet = ref(false)
 const availablePoints = ref(0)
 const petInfo = ref<PetInfo | null>(null)
@@ -31,6 +32,10 @@ const petTypes = ref<PetTypeOption[]>([])
 const selectedType = ref('')
 const petName = ref('')
 const activeTab = ref<'shop' | 'bag'>('shop')
+const exchangeQuantities = ref<Record<number, number>>({})
+const useSuccessVisible = ref(false)
+const useSuccessName = ref('')
+const useSuccessGif = ref('')
 
 const realAnimalGifs: Record<string, string[]> = {
   CAT: [
@@ -106,11 +111,13 @@ const ownedStagePreviewList = computed<PetGrowthStage[]>(() => {
 const consumableBenefits = computed(() =>
   benefits.value.filter((item) => item.benefitType === 'CONSUMABLE')
 )
-const permanentBenefits = computed(() =>
-  benefits.value.filter((item) => item.benefitType === 'PERMANENT')
-)
 const usableBenefits = computed(() =>
-  myBenefits.value.filter((item) => item.status === 1 && item.quantity > 0)
+  myBenefits.value.filter(
+    (item) =>
+      item.status === 1 &&
+      item.quantity > 0 &&
+      item.benefitCode !== 'PET_EXP_FRUIT'
+  )
 )
 
 const petMood = computed(() => {
@@ -131,6 +138,10 @@ const nextStageText = computed(() => {
   if (!petInfo.value) return ''
   if (!petInfo.value.nextStage) return '已经成长为最终形态啦'
   return `距离${petInfo.value.nextStage.stageName}还差 ${petInfo.value.nextStage.remainLevel} 级`
+})
+
+const growthPercent = computed(() => {
+  return Math.max(0, Math.min(100, petInfo.value?.exp || 0))
 })
 
 const currentColorHex = computed(() => {
@@ -176,6 +187,7 @@ function benefitIcon(code: string) {
   if (code.includes('MEAL')) return '🍱'
   if (code.includes('CLEAN')) return '🛁'
   if (code.includes('HAPPY')) return '🧸'
+  if (code.includes('ENERGY')) return '🥤'
   if (code.includes('EXP')) return '🍎'
   if (code.includes('HAT')) return '🎩'
   if (code.includes('BED')) return '🛏'
@@ -223,6 +235,11 @@ function applyHome(data: PetHomeResponse) {
   benefits.value = data.benefits.list
   myBenefits.value = data.myBenefits.list
   hasPet.value = true
+  consumableBenefits.value.forEach((item) => {
+    if (!exchangeQuantities.value[item.benefitId]) {
+      exchangeQuantities.value[item.benefitId] = 1
+    }
+  })
 }
 
 function selectType(type: PetTypeOption) {
@@ -258,6 +275,19 @@ async function refreshAfterChange(pet?: PetInfo, points?: number) {
   await loadPetHome()
 }
 
+function exchangeMax(item: PetBenefitItem) {
+  const pointMax = Math.floor(availablePoints.value / item.costPoints)
+  const stockMax = item.stock ?? 100
+  return Math.max(1, Math.min(100, pointMax, stockMax))
+}
+
+function getExchangeQuantity(item: PetBenefitItem) {
+  return Math.max(
+    1,
+    Math.min(exchangeQuantities.value[item.benefitId] || 1, exchangeMax(item))
+  )
+}
+
 async function exchangeBenefit(item: PetBenefitItem) {
   if (!item.canExchange) {
     ElMessage.info(
@@ -266,25 +296,33 @@ async function exchangeBenefit(item: PetBenefitItem) {
     return
   }
 
-  if (item.costPoints >= 100) {
-    await ElMessageBox.confirm(
-      `将消耗 ${item.costPoints} 积分兑换「${item.benefitName}」`,
-      '确认兑换',
-      {
-        confirmButtonText: '兑换',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
+  const quantity = getExchangeQuantity(item)
+  const totalCost = item.costPoints * quantity
+
+  if (totalCost >= 100 || quantity > 1) {
+    try {
+      await ElMessageBox.confirm(
+        `将消耗 ${totalCost} 积分兑换「${item.benefitName}」x${quantity}`,
+        '确认兑换',
+        {
+          confirmButtonText: '兑换',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }
+      )
+    } catch {
+      return
+    }
   }
 
   exchangingId.value = item.benefitId
   try {
     const result = await postData<PetExchangeResponse>(
       '/pet/benefit/exchange',
-      { benefitId: item.benefitId }
+      { benefitId: item.benefitId, quantity }
     )
-    ElMessage.success(`已兑换 ${result.benefitName}`)
+    ElMessage.success(`已兑换 ${result.benefitName} x${quantity}`)
+    exchangeQuantities.value[item.benefitId] = 1
     await refreshAfterChange(undefined, result.availablePoints)
     activeTab.value = 'bag'
   } catch (e: unknown) {
@@ -301,11 +339,31 @@ async function useBenefit(item: PetUserBenefit) {
       userBenefitId: item.userBenefitId
     })
     ElMessage.success(`已使用 ${result.benefitName}`)
+    useSuccessName.value = result.benefitName
+    useSuccessGif.value = `${petGifSrc(
+      result.petInfo.petAssetKey,
+      result.petInfo.petType,
+      result.petInfo.stageNo
+    )}?success=${Date.now()}`
+    useSuccessVisible.value = true
     await refreshAfterChange(result.petInfo)
   } catch (e: unknown) {
     ElMessage.error(e instanceof Error ? e.message : '使用失败')
   } finally {
     usingId.value = null
+  }
+}
+
+async function growPet() {
+  growing.value = true
+  try {
+    const pet = await postData<PetInfo>('/pet/grow')
+    ElMessage.success('成长成功')
+    await refreshAfterChange(pet)
+  } catch (e: unknown) {
+    ElMessage.error(e instanceof Error ? e.message : '成长失败')
+  } finally {
+    growing.value = false
   }
 }
 
@@ -395,32 +453,31 @@ onMounted(() => {
             {{ petInfo?.petTypeName }} · {{ petInfo?.petColorName }}
           </p>
           <h1>{{ petInfo?.petName }}</h1>
-          <p class="mood">
-            Lv.{{ petInfo?.level }} {{ petInfo?.stageName }} · {{ petMood }}
-          </p>
-          <p class="next-stage">{{ nextStageText }}</p>
           <div class="points-pill">
             <span>可用积分</span>
             <strong>{{ availablePoints }}</strong>
           </div>
         </div>
 
-        <div class="pet-avatar" :class="{ hat: petInfo?.currentHatCode }">
-          <span class="hat-mark" v-if="petInfo?.currentHatCode">🎩</span>
-          <img
-            class="pet-gif hero-gif"
-            :src="
-              petGifSrc(
-                petInfo?.petAssetKey,
-                petInfo?.petType,
-                petInfo?.stageNo
-              )
-            "
-            :alt="petInfo?.petName || '宠物'"
-          />
-          <span class="bed-mark" v-if="petInfo?.currentBedCode"
-            >小床已放置</span
-          >
+        <div class="pet-display">
+          <div class="pet-avatar" :class="{ hat: petInfo?.currentHatCode }">
+            <span class="hat-mark" v-if="petInfo?.currentHatCode">🎩</span>
+            <img
+              class="pet-gif hero-gif"
+              :src="
+                petGifSrc(
+                  petInfo?.petAssetKey,
+                  petInfo?.petType,
+                  petInfo?.stageNo
+                )
+              "
+              :alt="petInfo?.petName || '宠物'"
+            />
+            <span class="bed-mark" v-if="petInfo?.currentBedCode"
+              >小床已放置</span
+            >
+          </div>
+          <p class="next-stage">{{ nextStageText }}</p>
         </div>
 
         <div class="status-panel">
@@ -453,8 +510,27 @@ onMounted(() => {
             />
           </div>
           <div class="exp-line">
-            <span>成长值</span>
-            <strong>{{ petInfo?.exp || 0 }} / 100</strong>
+            <div class="exp-header">
+              <span>成长值</span>
+              <el-button
+                class="grow-button"
+                :loading="growing"
+                @click="growPet"
+              >
+                点击成长
+              </el-button>
+            </div>
+            <div class="charge-progress">
+              <div
+                class="charge-fill"
+                :style="{ width: `${growthPercent}%` }"
+              ></div>
+              <div class="charge-meta">
+                <span>Lv.{{ petInfo?.level }} · {{ petInfo?.exp || 0 }}/100</span>
+                <strong>{{ petInfo?.stageName }}</strong>
+                <span>{{ petMood }}</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -515,32 +591,19 @@ onMounted(() => {
                   <span>{{ item.costPoints }} 积分</span>
                   <span>已拥有 {{ item.quantity }}</span>
                 </div>
-                <el-button
-                  type="primary"
-                  :disabled="!item.canExchange"
-                  :loading="exchangingId === item.benefitId"
-                  @click="exchangeBenefit(item)"
-                >
-                  兑换
-                </el-button>
-              </article>
-            </div>
-
-            <h2>永久权益</h2>
-            <div class="benefit-grid">
-              <article
-                v-for="item in permanentBenefits"
-                :key="item.benefitId"
-                class="benefit-card"
-              >
-                <div class="benefit-icon">
-                  {{ benefitIcon(item.benefitCode) }}
+                <div class="exchange-row">
+                  <span>兑换数量</span>
+                  <el-input-number
+                    v-model="exchangeQuantities[item.benefitId]"
+                    :min="1"
+                    :max="exchangeMax(item)"
+                    size="small"
+                    controls-position="right"
+                    :disabled="!item.canExchange"
+                  />
                 </div>
-                <h3>{{ item.benefitName }}</h3>
-                <p>{{ item.description }}</p>
-                <div class="benefit-meta">
-                  <span>{{ item.costPoints }} 积分</span>
-                  <span>{{ item.owned ? '已拥有' : '未拥有' }}</span>
+                <div class="exchange-total">
+                  共 {{ item.costPoints * getExchangeQuantity(item) }} 积分
                 </div>
                 <el-button
                   type="primary"
@@ -548,7 +611,7 @@ onMounted(() => {
                   :loading="exchangingId === item.benefitId"
                   @click="exchangeBenefit(item)"
                 >
-                  {{ item.owned ? '已拥有' : '兑换' }}
+                  兑换 {{ getExchangeQuantity(item) }} 个
                 </el-button>
               </article>
             </div>
@@ -588,6 +651,28 @@ onMounted(() => {
         </el-tabs>
       </section>
     </template>
+
+    <el-dialog
+      v-model="useSuccessVisible"
+      width="360px"
+      class="use-success-dialog"
+      align-center
+      :show-close="false"
+    >
+      <div class="use-success">
+        <img
+          v-if="useSuccessGif"
+          class="use-success-gif"
+          :src="useSuccessGif"
+          alt="使用成功"
+        />
+        <h2>{{ useSuccessName }} 使用成功</h2>
+        <p>宠物状态已经更新</p>
+        <el-button type="primary" @click="useSuccessVisible = false">
+          知道了
+        </el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -789,17 +874,6 @@ onMounted(() => {
   margin-bottom: 8px;
 }
 
-.mood,
-.next-stage {
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.next-stage {
-  margin-top: 6px;
-  color: rgba(51, 37, 31, 0.76);
-}
-
 .points-pill {
   margin-top: 22px;
   background: rgba(255, 255, 255, 0.58);
@@ -820,8 +894,33 @@ onMounted(() => {
   font-size: 24px;
 }
 
+.pet-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.next-stage {
+  min-height: 38px;
+  border-radius: 999px;
+  padding: 8px 18px;
+  background: rgba(255, 255, 255, 0.46);
+  border: 1px solid rgba(255, 255, 255, 0.54);
+  color: rgba(51, 37, 31, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 800;
+  box-shadow: 0 10px 22px rgba(100, 68, 40, 0.1);
+}
+
 .pet-avatar {
   min-height: 248px;
+  width: 100%;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.46);
   border: 8px solid rgba(255, 255, 255, 0.5);
@@ -876,11 +975,109 @@ onMounted(() => {
 }
 
 .exp-line {
-  display: flex;
-  justify-content: space-between;
   border-top: 1px solid rgba(95, 64, 42, 0.14);
   padding-top: 12px;
   font-weight: 800;
+}
+
+.exp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.grow-button {
+  min-width: 112px;
+  height: 42px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd75a 0%, #ff9f2f 58%, #ff6f4f 100%);
+  color: #3b2615;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 0;
+  box-shadow:
+    0 10px 20px rgba(255, 132, 45, 0.28),
+    inset 0 2px 0 rgba(255, 255, 255, 0.42);
+}
+
+.grow-button:hover,
+.grow-button:focus {
+  color: #2f1d10;
+  transform: translateY(-1px);
+  box-shadow:
+    0 14px 24px rgba(255, 132, 45, 0.34),
+    inset 0 2px 0 rgba(255, 255, 255, 0.5);
+}
+
+.grow-button:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+.charge-progress {
+  position: relative;
+  height: 34px;
+  border: 2px solid rgba(73, 50, 34, 0.28);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7);
+  overflow: visible;
+  box-shadow:
+    inset 0 2px 6px rgba(90, 60, 36, 0.16),
+    0 8px 18px rgba(125, 82, 45, 0.12);
+}
+
+.charge-progress::after {
+  content: '';
+  position: absolute;
+  right: -8px;
+  top: 9px;
+  width: 6px;
+  height: 12px;
+  border-radius: 0 4px 4px 0;
+  background: rgba(73, 50, 34, 0.34);
+}
+
+.charge-fill {
+  position: absolute;
+  inset: 3px auto 3px 3px;
+  max-width: calc(100% - 6px);
+  border-radius: 8px;
+  background:
+    linear-gradient(
+      115deg,
+      rgba(255, 255, 255, 0.36) 0 18%,
+      transparent 18% 34%,
+      rgba(255, 255, 255, 0.24) 34% 50%,
+      transparent 50% 100%
+    ),
+    linear-gradient(90deg, #ffcf56 0%, #ff9f2f 52%, #35c47f 100%);
+  background-size: 34px 100%, 100% 100%;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.54),
+    0 0 14px rgba(255, 160, 47, 0.44);
+}
+
+.charge-meta {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 104px 1fr 76px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  color: #2f261e;
+  font-size: 13px;
+  font-weight: 900;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.58);
+}
+
+.charge-meta strong {
+  text-align: center;
+}
+
+.charge-meta span:last-child {
+  text-align: right;
 }
 
 .benefit-grid {
@@ -899,7 +1096,7 @@ onMounted(() => {
 }
 
 .benefit-card {
-  min-height: 226px;
+  min-height: 286px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -940,6 +1137,23 @@ onMounted(() => {
   margin-top: auto;
 }
 
+.exchange-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #5f6470;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.exchange-total {
+  color: #f08a24;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: right;
+}
+
 .bag-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -951,6 +1165,34 @@ onMounted(() => {
   grid-template-columns: 42px 1fr auto;
   align-items: center;
   gap: 12px;
+}
+
+.use-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  padding: 8px 0 4px;
+}
+
+.use-success-gif {
+  width: min(220px, 70vw);
+  height: 150px;
+  object-fit: contain;
+  border-radius: 16px;
+  background: #fff7eb;
+  box-shadow: 0 16px 34px rgba(80, 55, 30, 0.16);
+}
+
+.use-success h2 {
+  margin: 4px 0 0;
+  font-size: 20px;
+}
+
+.use-success p {
+  color: #8a92a3;
+  font-weight: 700;
 }
 
 @media (max-width: 900px) {

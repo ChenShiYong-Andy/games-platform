@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 /**
- * 管理员游戏配置请求。
+ * 管理员数独配置请求。
  */
 @Data
 public class AdminGameConfigRequest {
@@ -22,6 +22,6 @@ public class AdminGameConfigRequest {
      */
     @NotNull(message = "每日数独次数不能为空")
     @Min(value = 1, message = "每日数独次数上限不能小于1")
-    @Max(value = 100, message = "每日数独次数上限不能大于100")
+    @Max(value = 50, message = "每日数独次数上限不能大于50")
     private Integer sudokuDailyLimit;
 }

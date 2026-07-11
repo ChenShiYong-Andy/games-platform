@@ -3,9 +3,14 @@ package com.gamesplatform.admin.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.gamesplatform.admin.dto.AdminConfigStatusResponse;
 import com.gamesplatform.admin.dto.AdminGameConfigRequest;
+import com.gamesplatform.admin.dto.AdminPetGrowthAdjustRequest;
 import com.gamesplatform.admin.dto.AdminPointsAdjustRequest;
 import com.gamesplatform.admin.dto.SetAdminPasswordRequest;
 import com.gamesplatform.common.BusinessException;
+import com.gamesplatform.pet.entity.PetGrowthStageConfig;
+import com.gamesplatform.pet.entity.PetUser;
+import com.gamesplatform.pet.mapper.PetGrowthStageConfigMapper;
+import com.gamesplatform.pet.mapper.PetUserMapper;
 import com.gamesplatform.points.service.PointsService;
 import com.gamesplatform.user.dto.UserProfileResponse;
 import com.gamesplatform.user.entity.User;
@@ -26,9 +31,13 @@ import java.time.LocalDateTime;
 public class AdminConfigService {
 
     /**
-     * 默认每日数独次数最大上限。
+     * 每日数独次数最大上限。
      */
-    private static final int MAX_SUDOKU_DAILY_LIMIT = 100;
+    private static final int MAX_SUDOKU_DAILY_LIMIT = 50;
+    /**
+     * 宠物等级上限。
+     */
+    private static final int MAX_PET_LEVEL = 70;
 
     /**
      * 用户数据访问组件。
@@ -46,6 +55,14 @@ public class AdminConfigService {
      * 积分服务。
      */
     private final PointsService pointsService;
+    /**
+     * 用户宠物数据访问组件。
+     */
+    private final PetUserMapper petUserMapper;
+    /**
+     * 宠物成长阶段配置数据访问组件。
+     */
+    private final PetGrowthStageConfigMapper petGrowthStageConfigMapper;
 
     /**
      * 查询管理配置状态。
@@ -84,7 +101,7 @@ public class AdminConfigService {
     }
 
     /**
-     * 更新游戏配置。
+     * 更新数独配置。
      *
      * @param userId 用户 ID。
      * @param request 请求参数。
@@ -95,7 +112,7 @@ public class AdminConfigService {
         User user = requireAdmin(userId, request.getAdminPassword());
         Integer sudokuDailyLimit = request.getSudokuDailyLimit();
         if (sudokuDailyLimit < 1 || sudokuDailyLimit > MAX_SUDOKU_DAILY_LIMIT) {
-            throw new BusinessException("每日数独次数上限必须在 1 到 100 之间");
+            throw new BusinessException("每日数独次数上限必须在 1 到 50 之间");
         }
         user.setSudokuDailyLimit(sudokuDailyLimit);
         user.setUpdatedAt(LocalDateTime.now());
@@ -128,6 +145,47 @@ public class AdminConfigService {
         return userService.getProfile(userId);
     }
 
+    /**
+     * 扣减宠物成长值。
+     *
+     * @param userId 用户 ID。
+     * @param request 请求参数。
+     */
+    @Transactional
+    public void deductPetGrowth(Long userId, AdminPetGrowthAdjustRequest request) {
+        requireAdmin(userId, request.getAdminPassword());
+        PetUser pet = petUserMapper.selectOne(
+                new LambdaQueryWrapper<PetUser>()
+                        .eq(PetUser::getUserId, userId)
+                        .last("FOR UPDATE"));
+        if (pet == null) {
+            throw new BusinessException("请先领养宠物");
+        }
+
+        int level = pet.getLevel() != null ? pet.getLevel() : 1;
+        int exp = pet.getExp() != null ? pet.getExp() : 0;
+        int totalExp = Math.max(0, (level - 1) * 100 + exp - request.getAmount());
+        int newLevel = Math.min(MAX_PET_LEVEL, totalExp / 100 + 1);
+        int newExp = newLevel >= MAX_PET_LEVEL ? 0 : totalExp % 100;
+        int newStageNo = calculateStageNo(newLevel);
+
+        pet.setLevel(newLevel);
+        pet.setExp(newExp);
+        pet.setStageNo(newStageNo);
+        PetGrowthStageConfig stage = petGrowthStageConfigMapper.selectOne(
+                new LambdaQueryWrapper<PetGrowthStageConfig>()
+                        .eq(PetGrowthStageConfig::getPetType, pet.getPetType())
+                        .eq(PetGrowthStageConfig::getColorCode, pet.getPetColorCode())
+                        .eq(PetGrowthStageConfig::getStageNo, newStageNo)
+                        .eq(PetGrowthStageConfig::getEnabled, 1)
+                        .last("LIMIT 1"));
+        if (stage != null) {
+            pet.setPetAssetKey(stage.getAssetKey());
+        }
+        pet.setUpdateTime(LocalDateTime.now());
+        petUserMapper.updateById(pet);
+    }
+
     private User requireAdmin(Long userId, String adminPassword) {
         User user = userMapper.selectOne(
                 new LambdaQueryWrapper<User>()
@@ -147,5 +205,21 @@ public class AdminConfigService {
 
     private boolean hasAdminPassword(User user) {
         return user.getAdminPasswordHash() != null && !user.getAdminPasswordHash().isBlank();
+    }
+
+    private int calculateStageNo(int level) {
+        if (level <= 5) {
+            return 1;
+        }
+        if (level <= 15) {
+            return 2;
+        }
+        if (level <= 30) {
+            return 3;
+        }
+        if (level <= 50) {
+            return 4;
+        }
+        return 5;
     }
 }
