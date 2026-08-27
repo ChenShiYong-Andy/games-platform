@@ -1,6 +1,6 @@
 # Games Platform V1.0
 
-面向休闲益智游戏的在线游戏平台，V1.0 首发 **Sudoku（数独）** 游戏。
+面向休闲益智与双人对战场景的在线游戏平台，目前包含数独、五子棋、中国象棋和宠物养成。
 
 ## 技术栈
 
@@ -16,7 +16,9 @@
 
 - **用户中心** — 注册、登录、资料维护、头像管理
 - **认证中心** — JWT 认证、BCrypt 密码加密
-- **数独中心** — 创建游戏、难度选择、计时、校验、提示、撤销重做、结算、记录
+- **数独中心** — 创建游戏、难度选择、计时、校验、清空重做、结算、记录
+- **五子棋中心** — 等待房间列表、随机分配黑白方、双人轮流落子、正常胜负积分结算（认输不计积分）
+- **象棋中心** — 等待房间列表、随机分配红黑方、好友在线对弈、走子校验、正常胜负积分结算（认输不计积分）
 - **宠物养成** — 宠物状态、权益商店、积分兑换、背包使用、装扮切换
 - **积分中心** — 游戏积分奖励、流水记录、用户等级
 - **排行榜中心** — 总积分榜、本周积分榜、数独速度榜
@@ -158,40 +160,85 @@ cd frontend && npm install && npm run dev   # http://localhost:5173
 
 ```
 games-platform/
-├── backend/              # Spring Boot 后端
+├── backend/                          # Spring Boot 后端
+│   ├── pom.xml                       # Maven 依赖与构建配置
 │   ├── Dockerfile
-│   └── src/main/java/com/gamesplatform/
-│       ├── auth/         # JWT 认证
-│       ├── user/         # 用户中心
-│       ├── game/         # GameEngine 接口
-│       ├── sudoku/       # 数独中心
-│       ├── points/       # 积分中心
-│       ├── ranking/      # 排行榜中心
-│       └── achievement/  # 成就中心
-├── frontend/             # Vue3 前端
+│   └── src/
+│       ├── main/
+│       │   ├── java/com/gamesplatform/
+│       │   │   ├── GamesPlatformApplication.java
+│       │   │   ├── achievement/      # 成就配置、解锁记录与查询
+│       │   │   ├── admin/            # 管理密码、游戏配置与积分调整
+│       │   │   ├── auth/             # JWT 签发与认证过滤器
+│       │   │   ├── chess/            # 中国象棋房间、规则、走子与结算
+│       │   │   ├── common/           # 统一响应、业务异常与全局异常处理
+│       │   │   ├── config/           # Spring Security、Jackson、密码配置
+│       │   │   ├── game/             # 通用游戏领域对象与数独引擎接口
+│       │   │   ├── gomoku/           # 五子棋房间、规则、落子与结算
+│       │   │   ├── pet/              # 宠物养成、权益、背包与兑换
+│       │   │   ├── points/           # 用户积分及积分流水
+│       │   │   ├── ranking/          # 总榜、周榜与数独速度榜
+│       │   │   ├── sudoku/           # 数独创建、校验、提交与记录
+│       │   │   └── user/             # 注册、登录与用户资料
+│       │   └── resources/
+│       │       ├── application.yml
+│       │       ├── application-docker.yml
+│       │       └── db/migration/      # Flyway 初始化及增量迁移脚本
+│       └── test/java/com/gamesplatform/
+│           ├── chess/                 # 中国象棋规则测试
+│           └── gomoku/                # 五子棋胜负规则测试
+├── frontend/                         # Vue 3 + TypeScript 前端
+│   ├── package.json
+│   ├── vite.config.ts                 # Vite 构建与本地 API 代理
+│   ├── nginx.conf.template            # 生产静态资源与 API 反向代理
 │   ├── Dockerfile
-│   └── nginx.conf.template
-├── sql/                  # 数据库初始化脚本
+│   └── src/
+│       ├── api/                        # Axios 实例与统一请求封装
+│       ├── assets/                     # 游戏图片、GIF 与页面资源
+│       ├── components/                 # 游戏卡片、数独棋盘、排行榜等组件
+│       ├── config/                     # 游戏大厅注册配置
+│       ├── layouts/                    # 主页面布局
+│       ├── router/                     # 页面路由与登录守卫
+│       ├── stores/                     # Pinia 登录状态
+│       ├── styles/                     # 全局样式
+│       ├── types/                      # 前端接口类型定义
+│       ├── utils/                      # 剪贴板等浏览器兼容工具
+│       └── views/
+│           ├── games/                  # 数独、五子棋、象棋、宠物页面
+│           └── ...                     # 大厅、登录、资料、排行、成就页面
 ├── docker/
-│   ├── database/         # MySQL + Redis（独立部署，数据持久化）
-│   └── app/              # Backend + Frontend（可频繁重建）
+│   ├── database/                      # MySQL + Redis 独立部署与持久化
+│   └── app/                           # Backend + Frontend 应用部署
 ├── scripts/
-│   └── docker-build-push.sh  # 本地构建并推送镜像
-└── .env.example          # 镜像构建环境变量模板
+│   └── docker-build-push.sh           # 本地构建并推送镜像
+├── .env.example                       # 镜像构建环境变量模板
+├── first-phase-demand.md              # 第一阶段需求记录
+└── README.md
 ```
 
 ## 架构设计
 
-平台采用 `GameEngine` 接口实现游戏引擎的可扩展设计：
+后端按业务模块垂直拆分，每个模块内部根据需要包含 `controller`、`service`、`dto`、`entity`、`mapper` 和 `domain`。所有 HTTP 接口统一返回 `ApiResponse<T>`，受保护接口通过 JWT 获取当前用户 ID。
+
+数独采用 `GameEngine` 抽象组织创建、提交和规则校验：
 
 ```java
 public interface GameEngine {
+    String getGameType();
     GameSession createGame(String difficulty);
     GameResult submit(GameSubmitCommand command);
+    boolean validateMove(int[][] board, int row, int col, int value, int[][] solution);
+    int[] getHint(int[][] board, int[][] solution);
 }
 ```
 
-V1.0 仅实现 `SudokuGameEngine`，未来可无缝接入新游戏。
+当前外部数独接口未开放提示功能；`getHint` 仍保留在引擎契约中，便于规则引擎内部扩展。
+
+五子棋和中国象棋属于双人状态型游戏，分别由 `GomokuRules` 和 `ChineseChessRules` 执行服务端规则判断，由对应 Service 管理房间、随机阵营、回合、认输和积分结算。对局状态写入 MySQL，前端通过短轮询同步双方棋盘。
+
+数据库结构由 Flyway 管理：`V1__init.sql` 用于基础表初始化，后续 `V*__upgrade.sql` 用于宠物、游戏房间及结算字段升级。应用启动时会自动执行尚未应用的迁移。
+
+前端游戏大厅由 `frontend/src/config/games.ts` 统一注册游戏卡片；路由页面采用按需加载，认证状态由 Pinia 维护，API 请求由 Axios 拦截器统一附加 Bearer Token。
 
 ## API 概览
 
@@ -202,12 +249,29 @@ V1.0 仅实现 `SudokuGameEngine`，未来可无缝接入新游戏。
 | GET | /api/user/profile | 获取用户资料 |
 | PUT | /api/user/profile | 更新用户资料 |
 | POST | /api/sudoku/games | 创建数独游戏 |
+| GET | /api/sudoku/games | 查询数独游戏历史 |
+| GET | /api/sudoku/games/{id} | 查询数独游戏详情 |
+| POST | /api/sudoku/games/{id}/validate | 校验数独填数 |
 | POST | /api/sudoku/games/{id}/submit | 提交游戏 |
-| POST | /api/sudoku/games/{id}/hint | 获取提示 |
+| POST | /api/gomoku/rooms | 创建五子棋邀请房间 |
+| GET | /api/gomoku/rooms/waiting | 查询等待加入的五子棋房间 |
+| POST | /api/gomoku/rooms/join | 通过房间码加入对局 |
+| GET | /api/gomoku/games/active | 恢复当前未结束对局 |
+| GET | /api/gomoku/games/{id} | 查询五子棋对局状态 |
+| POST | /api/gomoku/games/{id}/moves | 五子棋落子 |
+| POST | /api/gomoku/games/{id}/surrender | 认输或取消等待中的房间 |
+| POST | /api/chess/rooms | 创建象棋邀请房间 |
+| GET | /api/chess/rooms/waiting | 查询等待加入的象棋房间 |
+| POST | /api/chess/rooms/join | 通过房间码加入象棋对局 |
+| GET | /api/chess/games/active | 恢复当前未结束的象棋对局 |
+| GET | /api/chess/games/{id} | 查询象棋对局状态 |
+| POST | /api/chess/games/{id}/moves | 象棋走子 |
+| POST | /api/chess/games/{id}/surrender | 认输或取消等待中的房间 |
 | GET | /api/pet/profile | 查询我的宠物资料 |
 | GET | /api/pet/init/options | 查询首次领养选项 |
 | POST | /api/pet/init/select | 首次领养宠物 |
 | GET | /api/pet/home | 宠物首页 |
+| POST | /api/pet/grow | 更新宠物成长状态 |
 | GET | /api/pet/benefit/list | 宠物权益列表 |
 | POST | /api/pet/benefit/exchange | 积分兑换宠物权益 |
 | GET | /api/pet/benefit/my | 我的宠物权益 |
@@ -217,3 +281,8 @@ V1.0 仅实现 `SudokuGameEngine`，未来可无缝接入新游戏。
 | GET | /api/ranking/sudoku-speed | 数独速度排行榜 |
 | GET | /api/achievements | 成就列表 |
 | GET | /api/points/transactions | 积分流水 |
+| GET | /api/admin/config/status | 查询管理配置状态 |
+| POST | /api/admin/config/password | 设置管理密码 |
+| PUT | /api/admin/config/game | 调整游戏配置 |
+| POST | /api/admin/config/pet/growth/deduct | 调整宠物成长值 |
+| POST | /api/admin/config/points | 调整用户积分 |

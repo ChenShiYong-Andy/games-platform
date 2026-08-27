@@ -6,6 +6,9 @@ import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const props = withDefaults(defineProps<{ games?: GameApp[] }>(), {
+  games: () => gameApps
+})
 
 function getGameStat(game: GameApp) {
   if (game.id === 'sudoku') {
@@ -26,7 +29,7 @@ function openGame(game: GameApp) {
 <template>
   <div class="game-grid">
     <button
-      v-for="game in gameApps"
+      v-for="game in props.games"
       :key="game.id"
       type="button"
       class="game-app"
@@ -34,7 +37,7 @@ function openGame(game: GameApp) {
       :style="game.enabled ? { background: game.bg, boxShadow: game.shadow } : { background: game.bg }"
       @click="openGame(game)"
     >
-      <span class="app-icon">{{ game.icon }}</span>
+      <span class="app-icon" :class="{ 'chess-emoji': game.id === 'chess' }">{{ game.icon }}</span>
       <span class="app-name">{{ game.name }}</span>
       <span class="app-desc">{{ game.description }}</span>
       <span v-if="getGameStat(game)" class="app-stat">
@@ -98,6 +101,24 @@ function openGame(game: GameApp) {
   font-size: 44px;
   line-height: 1;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.12));
+}
+
+.app-icon.chess-emoji {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border: 3px solid #a9281d;
+  border-radius: 50%;
+  background: radial-gradient(circle at 36% 28%, #fff2bd 0%, #f5d68d 55%, #d6a653 100%);
+  color: #b5261d;
+  font-family: STKaiti, KaiTi, serif;
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 0 0 3px rgba(255, 244, 190, 0.65), 0 4px 9px rgba(65, 20, 10, 0.3);
+  filter: none;
 }
 
 .app-name {

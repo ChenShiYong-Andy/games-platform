@@ -85,21 +85,6 @@ public class SudokuController {
     }
 
     /**
-     * 获取提示。
-     *
-     * @param authentication 当前认证信息。
-     * @param gameId 游戏 ID。
-     * @return 处理结果。
-     */
-    @PostMapping("/games/{gameId}/hint")
-    public ApiResponse<HintResponse> getHint(
-            Authentication authentication,
-            @PathVariable Long gameId) {
-        Long userId = (Long) authentication.getPrincipal();
-        return ApiResponse.success(sudokuService.getHint(userId, gameId));
-    }
-
-    /**
      * 提交游戏。
      *
      * @param authentication 当前认证信息。

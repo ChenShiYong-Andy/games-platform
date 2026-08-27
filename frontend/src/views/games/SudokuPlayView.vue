@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, h, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { postData } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { GameResponse, SubmitGameResponse } from '@/types'
 import SudokuBoard from '@/components/SudokuBoard.vue'
+import gameWinGif from '@/assets/game_win.gif'
 
 const route = useRoute()
 const router = useRouter()
@@ -19,8 +20,6 @@ const selectedCell = ref<[number, number] | null>(null)
 const hintsUsed = ref(0)
 const mistakes = ref(0)
 const elapsedSeconds = ref(0)
-const history = ref<number[][][]>([])
-const historyIndex = ref(-1)
 let timer: ReturnType<typeof setInterval> | null = null
 
 const difficultyLabel = computed(() => {
@@ -34,8 +33,9 @@ const formattedTime = computed(() => {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 })
 
-const canUndo = computed(() => historyIndex.value > 0)
-const canRedo = computed(() => historyIndex.value < history.value.length - 1)
+const hasFilledCells = computed(() => board.value.some((row, r) =>
+  row.some((cell, c) => initialBoard.value[r]?.[c] === 0 && cell !== 0)
+))
 const maxNumber = computed(() => game.value?.gridSize ?? 9)
 const numberPadCols = computed(() => {
   if (maxNumber.value <= 4) return 2
@@ -53,12 +53,6 @@ const clearBtnSpan = computed(() => {
   return 2
 })
 
-function pushHistory(state: number[][]) {
-  history.value = history.value.slice(0, historyIndex.value + 1)
-  history.value.push(state.map(row => [...row]))
-  historyIndex.value = history.value.length - 1
-}
-
 function selectCell(row: number, col: number) {
   if (initialBoard.value[row]?.[col] !== 0) return
   selectedCell.value = [row, col]
@@ -71,7 +65,6 @@ function inputNumber(num: number) {
 
   const newBoard = board.value.map(r => [...r])
   newBoard[row][col] = num
-  pushHistory(newBoard)
   board.value = newBoard
 }
 
@@ -81,37 +74,25 @@ function clearCell() {
   if (initialBoard.value[row][col] !== 0) return
   const newBoard = board.value.map(r => [...r])
   newBoard[row][col] = 0
-  pushHistory(newBoard)
   board.value = newBoard
 }
 
-function undo() {
-  if (!canUndo.value) return
-  historyIndex.value--
-  board.value = history.value[historyIndex.value].map(r => [...r])
-}
-
-function redo() {
-  if (!canRedo.value) return
-  historyIndex.value++
-  board.value = history.value[historyIndex.value].map(r => [...r])
-}
-
-async function requestHint() {
-  if (!game.value) return
+async function redo() {
+  if (!hasFilledCells.value) return
   try {
-    const hint = await postData<{ row: number; col: number; value: number }>(
-      `/sudoku/games/${game.value.id}/hint`
+    await ElMessageBox.confirm(
+      '重做会清空所有已填写的数字，此操作无法撤销，确定继续吗？',
+      '确认重做',
+      {
+        confirmButtonText: '确定清空',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
     )
-    hintsUsed.value++
-    const newBoard = board.value.map(r => [...r])
-    newBoard[hint.row][hint.col] = hint.value
-    pushHistory(newBoard)
-    board.value = newBoard
-    selectedCell.value = [hint.row, hint.col]
-    ElMessage.success(`提示：(${hint.row + 1}, ${hint.col + 1}) = ${hint.value}`)
-  } catch (e: unknown) {
-    ElMessage.error(e instanceof Error ? e.message : '获取提示失败')
+    board.value = initialBoard.value.map(row => [...row])
+    selectedCell.value = null
+  } catch {
+    // 用户取消重做时保持当前棋盘不变。
   }
 }
 
@@ -127,12 +108,40 @@ async function submitGame() {
     if (result.success) {
       stopTimer()
       await authStore.refreshProfile()
-      await ElMessageBox.alert(
-        `得分：${result.score} | 获得积分：${result.pointsEarned}\n当前等级：Lv.${result.newLevel} | 总积分：${result.totalPoints}`,
-        '恭喜通关！',
-        { confirmButtonText: '返回游戏大厅', type: 'success' }
-      )
-      router.push('/')
+      let playAgain = false
+      try {
+        await ElMessageBox.confirm(
+          h('div', { style: { width: '100%' } }, [
+            h('img', {
+              src: gameWinGif,
+              alt: '恭喜通关动画',
+              style: {
+                display: 'block',
+                width: '160px',
+                maxWidth: '100%',
+                height: 'auto',
+                margin: '0 auto 14px',
+                objectFit: 'contain'
+              }
+            }),
+            h('div', `得分：${result.score} | 获得积分：${result.pointsEarned} | 当前等级：Lv.${result.newLevel} | 总积分：${result.totalPoints}`)
+          ]),
+          '恭喜通关！',
+          {
+            confirmButtonText: '再来一次',
+            cancelButtonText: '返回游戏大厅',
+            customClass: 'sudoku-success-dialog',
+            showClose: false,
+            closeOnClickModal: false,
+            closeOnPressEscape: false
+          }
+        )
+        playAgain = true
+      } catch {
+        // 点击“返回游戏大厅”时 MessageBox 以 cancel 结束。
+      }
+      if (playAgain) await startGame()
+      else router.push('/')
     } else {
       mistakes.value++
       ElMessage.error(result.message)
@@ -149,14 +158,23 @@ function stopTimer() {
   }
 }
 
-onMounted(async () => {
+async function startGame() {
+  stopTimer()
+  loading.value = true
+  game.value = null
+  board.value = []
+  initialBoard.value = []
+  selectedCell.value = null
+  hintsUsed.value = 0
+  mistakes.value = 0
+  elapsedSeconds.value = 0
+
   const difficulty = (route.query.difficulty as string) || 'EASY'
   try {
     const data = await postData<GameResponse>('/sudoku/games', { difficulty })
     game.value = data
     board.value = data.puzzle.map(r => [...r])
     initialBoard.value = data.puzzle.map(r => [...r])
-    pushHistory(board.value)
     timer = setInterval(() => elapsedSeconds.value++, 1000)
   } catch (e: unknown) {
     ElMessage.error(e instanceof Error ? e.message : '创建游戏失败')
@@ -164,7 +182,9 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(startGame)
 
 onUnmounted(stopTimer)
 </script>
@@ -177,13 +197,10 @@ onUnmounted(stopTimer)
         <div class="game-info">
           <el-tag>{{ difficultyLabel }}</el-tag>
           <span class="timer">⏱ {{ formattedTime }}</span>
-          <span class="stat">提示: {{ hintsUsed }}</span>
           <span class="stat">错误: {{ mistakes }}</span>
         </div>
         <div class="game-actions">
-          <el-button @click="undo" :disabled="!canUndo">撤销</el-button>
-          <el-button @click="redo" :disabled="!canRedo">重做</el-button>
-          <el-button type="warning" @click="requestHint">提示</el-button>
+          <el-button @click="redo" :disabled="!hasFilledCells">重做</el-button>
           <el-button type="primary" @click="submitGame">提交</el-button>
         </div>
       </div>
@@ -286,5 +303,19 @@ onUnmounted(stopTimer)
 
 .clear-btn {
   color: #f5222d;
+}
+
+:global(.sudoku-success-dialog .el-message-box__btns) {
+  justify-content: center;
+}
+
+:global(.sudoku-success-dialog .el-message-box__container) {
+  justify-content: center;
+}
+
+:global(.sudoku-success-dialog .el-message-box__message) {
+  flex: 1;
+  width: 100%;
+  text-align: center;
 }
 </style>

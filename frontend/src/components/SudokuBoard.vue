@@ -43,6 +43,11 @@ function isSelected(row: number, col: number, selected: [number, number] | null)
   return selected && selected[0] === row && selected[1] === col
 }
 
+function selectCell(row: number, col: number) {
+  if (props.initialBoard[row]?.[col] !== 0) return
+  emit('select', row, col)
+}
+
 function isRelated(row: number, col: number, selected: [number, number] | null) {
   if (!selected) return false
   const [sr, sc] = selected
@@ -69,13 +74,15 @@ function isBoxBorder(row: number, col: number, side: string) {
         class="board-cell"
         :class="{
           fixed: initialBoard[r][c] !== 0,
+          'user-filled': initialBoard[r][c] === 0 && cell !== 0,
           selected: isSelected(r, c, selectedCell),
           related: isRelated(r, c, selectedCell) && !isSelected(r, c, selectedCell),
           'border-right': isBoxBorder(r, c, 'right'),
           'border-bottom': isBoxBorder(r, c, 'bottom')
         }"
+        :title="initialBoard[r][c] !== 0 ? '初始数字不可修改' : '点击选择此格'"
         :style="{ width: cellSize + 'px', height: cellSize + 'px', fontSize }"
-        @click="emit('select', r, c)"
+        @click="selectCell(r, c)"
       >
         <img
           v-if="isSelected(r, c, selectedCell)"
@@ -116,10 +123,16 @@ function isBoxBorder(row: number, col: number, side: string) {
 }
 
 .board-cell.fixed {
-  background: #f5f5f5;
-  font-weight: 700;
-  color: #333;
-  cursor: default;
+  background: #eef0f3;
+  font-weight: 500;
+  color: #262b33;
+  cursor: not-allowed;
+}
+
+.board-cell.user-filled {
+  background: #edf3ff;
+  color: #3564c8;
+  font-weight: 800;
 }
 
 .board-cell.related {

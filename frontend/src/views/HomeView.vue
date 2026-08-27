@@ -2,8 +2,11 @@
 import { onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import GameAppGrid from '@/components/GameAppGrid.vue'
+import { gameApps } from '@/config/games'
 
 const authStore = useAuthStore()
+const games = gameApps.filter(game => game.id !== 'pet')
+const petApps = gameApps.filter(game => game.id === 'pet')
 
 onMounted(() => {
   void authStore.refreshProfile().catch(() => undefined)
@@ -34,8 +37,28 @@ onMounted(() => {
       </div>
     </div>
 
-    <h2 class="section-title">全部游戏</h2>
-    <GameAppGrid />
+    <div class="hall-layout">
+      <section class="hall-section games-section">
+        <div class="section-heading">
+          <div>
+            <h2 class="section-title">全部游戏</h2>
+            <p>选择你喜欢的游戏，开始挑战</p>
+          </div>
+          <span class="section-count">{{ games.length }} 款游戏</span>
+        </div>
+        <GameAppGrid :games="games" />
+      </section>
+
+      <aside class="hall-section pet-section">
+        <div class="section-heading">
+          <div>
+            <h2 class="section-title">宠物养成</h2>
+            <p>陪伴你的专属伙伴成长</p>
+          </div>
+        </div>
+        <GameAppGrid :games="petApps" />
+      </aside>
+    </div>
   </div>
 </template>
 
@@ -102,7 +125,50 @@ onMounted(() => {
   font-size: 18px;
   font-weight: 600;
   color: #555;
+}
+
+.hall-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.hall-section {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(70, 76, 120, 0.07);
+}
+
+.pet-section {
+  background: linear-gradient(160deg, rgba(255, 250, 241, 0.94), rgba(255, 255, 255, 0.78));
+}
+
+.section-heading {
+  min-height: 52px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
   margin-bottom: 20px;
+}
+
+.section-heading p {
+  color: #999;
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+.section-count {
+  flex: 0 0 auto;
+  color: #7a79a8;
+  background: #f0f0ff;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 @media (max-width: 768px) {
@@ -115,6 +181,22 @@ onMounted(() => {
     width: 100%;
     justify-content: space-between;
     gap: 12px;
+  }
+}
+
+@media (max-width: 900px) {
+  .hall-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .pet-section {
+    order: 2;
+  }
+}
+
+@media (max-width: 520px) {
+  .hall-section {
+    padding: 18px;
   }
 }
 </style>

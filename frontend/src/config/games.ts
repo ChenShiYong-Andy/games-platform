@@ -29,5 +29,25 @@ export const gameApps: GameApp[] = [
     bg: 'linear-gradient(145deg, #ff8a5c 0%, #ffcf56 100%)',
     shadow: '0 8px 24px rgba(255, 138, 92, 0.32)',
     enabled: true
+  },
+  {
+    id: 'gomoku',
+    name: '五子棋',
+    description: '邀请好友，双人在线对弈',
+    icon: '⚫',
+    route: '/games/gomoku',
+    bg: 'linear-gradient(145deg, #d49a52 0%, #8b5e34 100%)',
+    shadow: '0 8px 24px rgba(139, 94, 52, 0.32)',
+    enabled: true
+  },
+  {
+    id: 'chess',
+    name: '中国象棋',
+    description: '楚河汉界，好友在线对弈',
+    icon: '帅',
+    route: '/games/chess',
+    bg: 'linear-gradient(145deg, #c84b31 0%, #7d1f18 100%)',
+    shadow: '0 8px 24px rgba(143, 37, 27, 0.34)',
+    enabled: true
   }
 ]

@@ -153,34 +153,6 @@ public class SudokuService {
     }
 
     /**
-     * 获取提示。
-     *
-     * @param userId 用户 ID。
-     * @param gameId 游戏 ID。
-     * @return 处理结果。
-     */
-    @Transactional
-    public HintResponse getHint(Long userId, Long gameId) {
-        SudokuGame game = getGameEntity(userId, gameId);
-        if (!"IN_PROGRESS".equals(game.getStatus())) {
-            throw new BusinessException("游戏已结束");
-        }
-        int[][] solution = fromJson(game.getSolutionJson());
-        int[][] board = fromJson(game.getPuzzleJson());
-        int[] hint = sudokuGameEngine.getHint(board, solution);
-        if (hint == null) {
-            throw new BusinessException("没有可用的提示");
-        }
-        game.setHintsUsed(game.getHintsUsed() + 1);
-        sudokuGameMapper.updateById(game);
-        return HintResponse.builder()
-                .row(hint[0])
-                .col(hint[1])
-                .value(hint[2])
-                .build();
-    }
-
-    /**
      * 提交游戏。
      *
      * @param userId 用户 ID。

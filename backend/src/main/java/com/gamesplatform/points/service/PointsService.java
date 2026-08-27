@@ -116,7 +116,13 @@ public class PointsService {
     }
 
     private int changePoints(Long userId, int amount, String type, Long sourceId, String description) {
-        User user = userMapper.selectById(userId);
+        User user = userMapper.selectOne(
+                new LambdaQueryWrapper<User>()
+                        .eq(User::getId, userId)
+                        .last("FOR UPDATE"));
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
         return changePoints(user, amount, type, sourceId, description);
     }
 

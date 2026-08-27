@@ -73,6 +73,54 @@ export interface PointTransaction {
   createdAt: string
 }
 
+export interface GomokuGame {
+  id: number
+  roomCode: string
+  board: number[][]
+  status: 'WAITING' | 'IN_PROGRESS' | 'BLACK_WON' | 'WHITE_WON' | 'DRAW' | 'CANCELLED'
+  finishReason: 'NORMAL' | 'SURRENDER' | 'DRAW' | 'CANCELLED' | null
+  moveCount: number
+  blackPlayerId: number
+  blackPlayerName: string
+  whitePlayerId: number | null
+  whitePlayerName: string | null
+  currentPlayerId: number
+  winnerId: number | null
+  myColor: 'BLACK' | 'WHITE'
+  myTurn: boolean
+  pointsEarned: number | null
+}
+
+export interface WaitingRoom {
+  id: number
+  roomCode: string
+  hostName: string
+  hostUsername: string
+}
+
+export interface ChineseChessGame {
+  id: number
+  roomCode: string
+  board: number[][]
+  status: 'WAITING' | 'IN_PROGRESS' | 'RED_WON' | 'BLACK_WON' | 'CANCELLED'
+  finishReason: 'NORMAL' | 'SURRENDER' | 'CANCELLED' | null
+  moveCount: number
+  redPlayerId: number
+  redPlayerName: string
+  blackPlayerId: number | null
+  blackPlayerName: string | null
+  currentPlayerId: number
+  winnerId: number | null
+  myColor: 'RED' | 'BLACK'
+  myTurn: boolean
+  inCheck: boolean
+  lastFromRow: number | null
+  lastFromCol: number | null
+  lastToRow: number | null
+  lastToCol: number | null
+  pointsEarned: number | null
+}
+
 export interface PetInfo {
   petId: number
   petType: string
