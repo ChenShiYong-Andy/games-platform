@@ -54,17 +54,6 @@ export interface RankingEntry {
   rank: number
 }
 
-export interface Achievement {
-  id: number
-  code: string
-  gameCode: string
-  name: string
-  description: string
-  icon: string
-  unlocked: boolean
-  unlockedAt: string | null
-}
-
 export interface PointTransaction {
   id: number
   amount: number

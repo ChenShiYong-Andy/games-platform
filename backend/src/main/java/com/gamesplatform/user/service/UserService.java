@@ -1,7 +1,6 @@
 package com.gamesplatform.user.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.gamesplatform.achievement.service.AchievementService;
 import com.gamesplatform.auth.JwtTokenProvider;
 import com.gamesplatform.common.BusinessException;
 import com.gamesplatform.ranking.service.RankingService;
@@ -39,10 +38,6 @@ public class UserService {
      * JWT 令牌组件。
      */
     private final JwtTokenProvider jwtTokenProvider;
-    /**
-     * 成就服务。
-     */
-    private final AchievementService achievementService;
     /**
      * 排行榜服务。
      */
@@ -189,8 +184,6 @@ public class UserService {
         user.setLastLoginDate(today);
         user.setUpdatedAt(LocalDateTime.now());
         userMapper.updateById(user);
-
-        achievementService.checkLoginStreak(user.getId(), streak);
     }
 
     private UserProfileResponse toProfile(User user) {

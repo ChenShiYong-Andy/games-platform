@@ -29,7 +29,6 @@ const router = createRouter({
         { path: 'games/chess', name: 'ChineseChess', component: () => import('@/views/games/ChineseChessView.vue') },
         { path: 'profile', name: 'Profile', component: () => import('@/views/ProfileView.vue') },
         { path: 'ranking', name: 'Ranking', component: () => import('@/views/RankingView.vue') },
-        { path: 'achievements', name: 'Achievements', component: () => import('@/views/AchievementsView.vue') },
         // 旧路由兼容
         { path: 'game', redirect: '/games/sudoku' },
         { path: 'game/play', redirect: to => ({ path: '/games/sudoku/play', query: to.query }) }

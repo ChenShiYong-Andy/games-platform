@@ -45,8 +45,7 @@ backend/src/main/java/com/gamesplatform/
 ├── sudoku/          # 数独 HTTP 层 (SudokuController, SudokuService, SudokuGameMapper)
 ├── pet/             # 宠物养成与积分兑换 (PetController, PetService, 权益/背包/订单 Mapper)
 ├── points/          # 积分流水 (PointsController, PointsService, PointTransactionMapper)
-├── ranking/         # 排行榜 (RankingController, RankingService)
-└── achievement/     # 成就系统 (AchievementController, AchievementService, 双表 Mapper)
+└── ranking/         # 排行榜 (RankingController, RankingService)
 ```
 
 **核心模式**: `GameEngine` 接口定义游戏的创建、提交、落子校验、提示四个行为。`SudokuGameEngine` 是当前唯一实现类，通过 `@Qualifier` 注入到 `SudokuService`。新增游戏只需实现该接口 + 对应的 controller/service/mapper 切片。
@@ -63,7 +62,7 @@ backend/src/main/java/com/gamesplatform/
   /                           # HomeView（游戏大厅）
   /games/sudoku, /games/sudoku/play
   /games/pet                  # PetView
-  /profile, /ranking, /achievements
+  /profile, /ranking
 ```
 
 **路由守卫**: `meta.requiresAuth` 检查 token 存在性，`meta.guest` 禁止已登录用户访问。
@@ -76,7 +75,7 @@ backend/src/main/java/com/gamesplatform/
 
 ### 持久化与 Redis
 
-- MySQL: 用户、游戏记录、积分流水、成就、宠物权益。`sql/init.sql` 初始化库表，`sql/upgrade_20260601.sql` 增量升级（添加 daily limit 列、成就扩展 game_code），`sql/upgrade_20260704.sql` 移除动物园相关表和字段，并创建宠物养成、首次领养、颜色和成长阶段相关表与默认配置。
+- MySQL: 用户、游戏记录、积分流水、宠物权益。数据库结构由 `backend/src/main/resources/db/migration/` 下的 Flyway 脚本管理。
 - Redis: `spring-boot-starter-data-redis` 已引入，当前主要用于缓存和会话管理。
 
 ### 部署架构

@@ -22,7 +22,6 @@
 - **宠物养成** — 宠物状态、权益商店、积分兑换、背包使用、装扮切换
 - **积分中心** — 游戏积分奖励、流水记录、用户等级
 - **排行榜中心** — 总积分榜、本周积分榜、数独速度榜
-- **成就中心** — 首次通关、连续登录、通关次数、专家模式
 
 ## 部署流程（本地构建 → 推送镜像仓库）
 
@@ -167,7 +166,6 @@ games-platform/
 │       ├── main/
 │       │   ├── java/com/gamesplatform/
 │       │   │   ├── GamesPlatformApplication.java
-│       │   │   ├── achievement/      # 成就配置、解锁记录与查询
 │       │   │   ├── admin/            # 管理密码、游戏配置与积分调整
 │       │   │   ├── auth/             # JWT 签发与认证过滤器
 │       │   │   ├── chess/            # 中国象棋房间、规则、走子与结算
@@ -205,7 +203,7 @@ games-platform/
 │       ├── utils/                      # 剪贴板等浏览器兼容工具
 │       └── views/
 │           ├── games/                  # 数独、五子棋、象棋、宠物页面
-│           └── ...                     # 大厅、登录、资料、排行、成就页面
+│           └── ...                     # 大厅、登录、资料与排行页面
 ├── docker/
 │   ├── database/                      # MySQL + Redis 独立部署与持久化
 │   └── app/                           # Backend + Frontend 应用部署
@@ -279,7 +277,6 @@ public interface GameEngine {
 | GET | /api/ranking/total | 总积分排行榜 |
 | GET | /api/ranking/weekly | 本周积分排行榜 |
 | GET | /api/ranking/sudoku-speed | 数独速度排行榜 |
-| GET | /api/achievements | 成就列表 |
 | GET | /api/points/transactions | 积分流水 |
 | GET | /api/admin/config/status | 查询管理配置状态 |
 | POST | /api/admin/config/password | 设置管理密码 |

@@ -3,7 +3,6 @@ package com.gamesplatform.sudoku.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.gamesplatform.achievement.service.AchievementService;
 import com.gamesplatform.common.BusinessException;
 import com.gamesplatform.game.domain.GameResult;
 import com.gamesplatform.game.domain.GameSession;
@@ -57,10 +56,6 @@ public class SudokuService {
      * 排行榜服务。
      */
     private final RankingService rankingService;
-    /**
-     * 成就服务。
-     */
-    private final AchievementService achievementService;
     /**
      * 用户数据访问组件。
      */
@@ -202,9 +197,6 @@ public class SudokuService {
         int totalClears = user.getTotalClears() + 1;
         user.setTotalClears(totalClears);
         userMapper.updateById(user);
-
-        achievementService.checkGameComplete(
-                userId, AchievementService.GAME_SUDOKU, game.getDifficulty(), totalClears);
 
         return SubmitGameResponse.builder()
                 .success(true)
