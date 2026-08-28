@@ -24,6 +24,11 @@ public class ChineseChessController {
         return ApiResponse.success(chessService.createRoom((Long) auth.getPrincipal()));
     }
 
+    @PostMapping("/ai-games")
+    public ApiResponse<ChineseChessGameResponse> createAiGame(Authentication auth) {
+        return ApiResponse.success(chessService.createAiGame((Long) auth.getPrincipal()));
+    }
+
     @GetMapping("/rooms/waiting")
     public ApiResponse<List<WaitingRoomResponse>> getWaitingRooms(Authentication auth) {
         return ApiResponse.success(chessService.getWaitingRooms((Long) auth.getPrincipal()));

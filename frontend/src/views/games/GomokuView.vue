@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getData, postData } from '@/api'
@@ -15,15 +15,60 @@ const game = ref<GomokuGame | null>(null)
 const waitingRooms = ref<WaitingRoom[]>([])
 const loading = ref(false)
 const roomsLoading = ref(false)
+const showResultAnimation = ref(false)
+const resultCountdown = ref(3)
 let pollTimer: number | null = null
 let roomPollTimer: number | null = null
+let resultTimer: number | null = null
 let polling = false
 
 const isPlaying = computed(() => game.value?.status === 'IN_PROGRESS')
 const isFinished = computed(() => ['BLACK_WON', 'WHITE_WON', 'DRAW', 'CANCELLED'].includes(game.value?.status || ''))
-const didWin = computed(() => game.value?.winnerId === authStore.user?.id)
-const didLose = computed(() => authStore.user?.id != null
-  && game.value?.winnerId != null && game.value.winnerId !== authStore.user.id)
+const didWin = computed(() => {
+  const current = game.value
+  return !!current && current.status === `${current.myColor}_WON`
+})
+const didLose = computed(() => !!game.value?.status.endsWith('_WON') && !didWin.value)
+const winningCells = computed(() => {
+  const current = game.value
+  if (!current?.status.endsWith('_WON') || current.finishReason !== 'NORMAL') return []
+  const stone = current.status === 'BLACK_WON' ? 1 : 2
+  const directions = [[0, 1], [1, 0], [1, 1], [1, -1]]
+  for (let row = 0; row < current.board.length; row++) {
+    for (let col = 0; col < current.board[row].length; col++) {
+      if (current.board[row][col] !== stone) continue
+      for (const [dr, dc] of directions) {
+        const previousRow = row - dr
+        const previousCol = col - dc
+        if (current.board[previousRow]?.[previousCol] === stone) continue
+        const run: Array<{ row: number; col: number }> = []
+        for (let r = row, c = col; current.board[r]?.[c] === stone; r += dr, c += dc) {
+          run.push({ row: r, col: c })
+        }
+        if (run.length >= 5) {
+          const lastIndex = run.findIndex(cell => cell.row === current.lastMoveRow && cell.col === current.lastMoveCol)
+          const start = lastIndex >= 0 ? Math.min(Math.max(lastIndex - 4, 0), run.length - 5) : 0
+          return run.slice(start, start + 5)
+        }
+      }
+    }
+  }
+  return []
+})
+const winningCellKeys = computed(() => new Set(winningCells.value.map(cell => `${cell.row}-${cell.col}`)))
+const winningLineStyle = computed(() => {
+  if (winningCells.value.length !== 5) return undefined
+  const first = winningCells.value[0]
+  const last = winningCells.value[4]
+  const rowDistance = last.row - first.row
+  const colDistance = last.col - first.col
+  return {
+    left: `calc(14px + var(--cell) * ${first.col + 0.5})`,
+    top: `calc(14px + var(--cell) * ${first.row + 0.5})`,
+    width: `calc(var(--cell) * ${Math.hypot(rowDistance, colDistance)})`,
+    transform: `translateY(-50%) rotate(${Math.atan2(rowDistance, colDistance) * 180 / Math.PI}deg)`
+  }
+})
 const statusText = computed(() => {
   if (!game.value) return ''
   if (game.value.status === 'WAITING') return '等待好友加入…'
@@ -31,9 +76,9 @@ const statusText = computed(() => {
   if (game.value.status === 'CANCELLED') return '房间已取消'
   if (game.value.status.endsWith('_WON')) {
     if (game.value.finishReason === 'SURRENDER') {
-      return game.value.winnerId === authStore.user?.id ? '对方已认输，你赢了（本局不计积分）' : '你已认输（本局不计积分）'
+      return didWin.value ? '对方已认输，你赢了（本局不计积分）' : '你已认输（本局不计积分）'
     }
-    return game.value.winnerId === authStore.user?.id ? '你赢了！获得 10 积分' : '你输了，获得 5 积分'
+    return didWin.value ? '你赢了！获得 10 积分' : '你输了，获得 5 积分'
   }
   return game.value.myTurn ? '轮到你落子' : '等待对方落子…'
 })
@@ -42,6 +87,17 @@ async function createRoom() {
   loading.value = true
   try {
     setGame(await postData<GomokuGame>('/gomoku/rooms'))
+  } catch (error) {
+    showError(error)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function createAiGame() {
+  loading.value = true
+  try {
+    setGame(await postData<GomokuGame>('/gomoku/ai-games'))
   } catch (error) {
     showError(error)
   } finally {
@@ -143,6 +199,33 @@ function showError(error: unknown) {
   ElMessage.error(error instanceof Error ? error.message : '操作失败')
 }
 
+function setScreenLocked(locked: boolean) {
+  if (locked) window.scrollTo({ top: 0 })
+  document.documentElement.classList.toggle('game-screen-locked', locked)
+}
+
+function stopResultAnimation() {
+  if (resultTimer !== null) window.clearInterval(resultTimer)
+  resultTimer = null
+  showResultAnimation.value = false
+}
+
+function startResultAnimation() {
+  stopResultAnimation()
+  resultCountdown.value = 3
+  showResultAnimation.value = true
+  resultTimer = window.setInterval(() => {
+    resultCountdown.value -= 1
+    if (resultCountdown.value <= 0) stopResultAnimation()
+  }, 1000)
+}
+
+watch(isPlaying, setScreenLocked, { flush: 'post' })
+watch(() => game.value?.status, (status, previousStatus) => {
+  if (status?.endsWith('_WON') && status !== previousStatus) startResultAnimation()
+  else if (!status?.endsWith('_WON')) stopResultAnimation()
+})
+
 onMounted(async () => {
   const savedId = localStorage.getItem('gomokuGameId')
   try {
@@ -161,24 +244,33 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  stopResultAnimation()
+  setScreenLocked(false)
   if (pollTimer !== null) window.clearInterval(pollTimer)
   if (roomPollTimer !== null) window.clearInterval(roomPollTimer)
 })
 </script>
 
 <template>
-  <div class="page-container gomoku-page">
+  <div class="page-container gomoku-page" :class="{ 'game-active': isPlaying }">
     <button class="back-btn" @click="router.push('/')">← 返回游戏大厅</button>
 
     <header class="game-header">
       <div>
         <h1>⚫ 五子棋</h1>
-        <p>邀请一位好友对弈 · 胜者 +10 积分 · 败者 +5 积分</p>
+        <p>支持好友对弈与人机对局 · 胜者 +10 积分 · 败者 +5 积分</p>
       </div>
       <button v-if="game && isFinished" class="primary-btn" @click="resetGame">再来一局</button>
     </header>
 
     <section v-if="!game" class="lobby card">
+      <div class="lobby-option ai-option">
+        <span class="option-icon">🤖</span>
+        <h2>人机对局</h2>
+        <p>立即挑战电脑，开局随机分配黑白方。</p>
+        <button class="primary-btn" :disabled="loading" @click="createAiGame">开始人机对局</button>
+      </div>
+      <div class="divider"><span>或</span></div>
       <div class="lobby-option">
         <span class="option-icon">🏠</span>
         <h2>创建房间</h2>
@@ -227,19 +319,30 @@ onBeforeUnmount(() => {
                 v-for="(cell, colIndex) in row"
                 :key="`${rowIndex}-${colIndex}`"
                 class="intersection"
-                :class="{ playable: game.myTurn && cell === 0 }"
+                :class="{
+                  playable: game.myTurn && cell === 0,
+                  last: game.lastMoveRow === rowIndex && game.lastMoveCol === colIndex,
+                  winning: winningCellKeys.has(`${rowIndex}-${colIndex}`)
+                }"
                 :aria-label="`第 ${rowIndex + 1} 行第 ${colIndex + 1} 列`"
                 @click="placeStone(rowIndex, colIndex)"
               >
                 <span v-if="cell" class="stone board-stone" :class="cell === 1 ? 'black' : 'white'"></span>
               </button>
             </template>
+            <span v-if="winningLineStyle" class="winning-line" :style="winningLineStyle"></span>
           </div>
-          <div v-if="didWin" class="result-animation" role="status" aria-label="恭喜获胜">
-            <img :src="gameWinGif" alt="恭喜获胜动画">
+          <div v-if="showResultAnimation && didWin" class="result-animation" role="status" aria-label="恭喜获胜" @click="stopResultAnimation">
+            <div class="result-panel">
+              <div class="result-countdown">{{ resultCountdown }} 秒后自动关闭</div>
+              <img :src="gameWinGif" alt="恭喜获胜动画">
+            </div>
           </div>
-          <div v-else-if="didLose" class="result-animation" role="status" aria-label="本局失败">
-            <img :src="gameLoseGif" alt="本局失败动画">
+          <div v-else-if="showResultAnimation && didLose" class="result-animation" role="status" aria-label="本局失败" @click="stopResultAnimation">
+            <div class="result-panel">
+              <div class="result-countdown">{{ resultCountdown }} 秒后自动关闭</div>
+              <img :src="gameLoseGif" alt="本局失败动画">
+            </div>
           </div>
         </div>
       </div>
@@ -254,12 +357,19 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .gomoku-page { max-width: 980px; }
+.gomoku-page.game-active { height: calc(100dvh - 112px); padding-top: 0; padding-bottom: 0; display: flex; flex-direction: column; overflow: hidden; }
+.game-active .back-btn { margin-bottom: 6px; flex: 0 0 auto; }
+.game-active .game-header { margin-bottom: 10px; flex: 0 0 auto; }
+.game-active .match-card { margin-bottom: 6px; padding-top: 10px; padding-bottom: 10px; flex: 0 0 auto; }
+.game-active .board-wrap { flex: 1 1 auto; min-height: 0; padding: 4px 0; display: flex; align-items: center; justify-content: center; }
+.game-active .board { --cell: clamp(20px, calc((100dvh - 420px) / 15), 35px); }
+.game-active .actions { margin: 6px 0 0; flex: 0 0 auto; }
 .back-btn { border: 0; background: none; color: #8b5e34; cursor: pointer; margin-bottom: 18px; font-weight: 600; }
 .game-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 16px; }
 .game-header h1 { font-size: 30px; margin-bottom: 6px; }
 .game-header p, .lobby-option p { color: #777; }
-.lobby { display: grid; grid-template-columns: 1fr auto 1fr; align-items: stretch; gap: 32px; padding: 42px; }
-.lobby-option { text-align: center; padding: 10px 24px; }
+.lobby { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: stretch; gap: 16px; padding: 34px 24px; }
+.lobby-option { text-align: center; padding: 10px 12px; }
 .option-icon { font-size: 44px; }
 .lobby-option h2 { margin: 12px 0 8px; }
 .lobby-option p { min-height: 44px; margin-bottom: 22px; line-height: 1.55; }
@@ -288,13 +398,23 @@ onBeforeUnmount(() => {
 .board-wrap { overflow: auto; padding: 8px 0 12px; }
 .board-stage { position: relative; width: max-content; margin: auto; }
 .board { --cell: 35px; width: calc(var(--cell) * 15 + 28px); height: calc(var(--cell) * 15 + 28px); padding: 14px; display: grid; grid-template-columns: repeat(15, var(--cell)); grid-template-rows: repeat(15, var(--cell)); background-color: #d8a35c; background-image: linear-gradient(rgba(74,45,18,.72) 1px, transparent 1px), linear-gradient(90deg, rgba(74,45,18,.72) 1px, transparent 1px); background-size: var(--cell) var(--cell); background-position: calc(14px + var(--cell) / 2) calc(14px + var(--cell) / 2); border: 2px solid #895b2c; border-radius: 5px; box-shadow: 0 8px 22px rgba(81,48,17,.28); }
-.result-animation { position: absolute; inset: 14px; z-index: 5; display: grid; place-items: center; pointer-events: none; animation: win-pop .38s cubic-bezier(.2, 1.35, .45, 1) both; }
-.result-animation img { display: block; width: min(88%, 498px); max-height: 88%; object-fit: contain; border-radius: 10px; box-shadow: 0 12px 34px rgba(58, 35, 11, .3); }
+.result-animation { position: absolute; inset: 14px; z-index: 5; display: grid; place-items: center; cursor: pointer; animation: win-pop .38s cubic-bezier(.2, 1.35, .45, 1) both; }
+.result-panel { position: relative; width: min(88%, 498px); max-height: 94%; display: flex; flex-direction: column; align-items: center; }
+.result-countdown { position: relative; z-index: 1; margin-bottom: 8px; padding: 6px 14px; border-radius: 999px; background: rgba(35, 31, 25, .82); color: #fff; font-size: 14px; font-weight: 700; box-shadow: 0 4px 14px rgba(0,0,0,.2); }
+.result-panel img { display: block; width: 100%; min-height: 0; object-fit: contain; border-radius: 10px; box-shadow: 0 12px 34px rgba(58, 35, 11, .3); }
 @keyframes win-pop { from { opacity: 0; transform: scale(.55); } to { opacity: 1; transform: scale(1); } }
 .intersection { width: var(--cell); height: var(--cell); border: 0; padding: 0; background: transparent; display: grid; place-items: center; cursor: default; }
 .intersection.playable { cursor: pointer; }
 .intersection.playable:hover::after { content: ''; width: 12px; height: 12px; border-radius: 50%; background: rgba(60, 35, 15, .22); }
-.board-stone { width: 29px; height: 29px; }
+.intersection.last .board-stone { outline: 3px solid #ffcf32; outline-offset: 3px; box-shadow: 0 0 0 5px rgba(255, 243, 145, .72), 0 0 14px rgba(255, 180, 0, .9); }
+.intersection.last::before { content: ''; position: absolute; left: 50%; top: 50%; z-index: 2; width: 7px; height: 7px; border-radius: 50%; background: #e44732; box-shadow: 0 0 0 2px rgba(255,255,255,.85); transform: translate(-50%,-50%); pointer-events: none; }
+.intersection { position: relative; }
+.intersection.winning { z-index: 3; }
+.intersection.winning .board-stone { outline: 3px solid #58d36b; outline-offset: 3px; box-shadow: 0 0 0 6px rgba(200,255,144,.8), 0 0 18px rgba(43,196,75,.95); animation: winning-stone 1s ease-in-out infinite alternate; }
+.winning-line { position: absolute; z-index: 2; height: 7px; border-radius: 999px; transform-origin: left center; background: linear-gradient(90deg,#f5d941,#62dc70); box-shadow: 0 0 9px rgba(76,216,99,.95); pointer-events: none; animation: winning-line 1s ease-in-out infinite alternate; }
+@keyframes winning-stone { to { filter: brightness(1.18); transform: scale(1.08); } }
+@keyframes winning-line { to { opacity: .66; box-shadow: 0 0 16px rgba(76,216,99,1); } }
+.board-stone { width: clamp(17px, calc(var(--cell) - 6px), 29px); height: clamp(17px, calc(var(--cell) - 6px), 29px); }
 .actions { display: flex; justify-content: center; align-items: center; gap: 20px; color: #999; margin: 12px 0; }
 @media (max-width: 680px) {
   .lobby { grid-template-columns: 1fr; padding: 24px 16px; gap: 14px; }
@@ -306,5 +426,11 @@ onBeforeUnmount(() => {
   .board-stone { width: 22px; height: 22px; }
   .game-header { align-items: flex-start; }
   .game-header h1 { font-size: 25px; }
+  .game-active .game-header p { display: none; }
+  .game-active .board { --cell: clamp(20px, calc((100dvh - 400px) / 15), 25px); }
+}
+@media (max-height: 800px) {
+  .game-active .game-header p { display: none; }
+  .game-active .game-header h1 { font-size: 25px; }
 }
 </style>

@@ -12,6 +12,7 @@ public class ChineseChessGameResponse {
     private int[][] board;
     private String status;
     private String finishReason;
+    private String gameMode;
     private Integer moveCount;
     private Long redPlayerId;
     private String redPlayerName;

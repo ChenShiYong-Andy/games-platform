@@ -12,7 +12,10 @@ public class GomokuGameResponse {
     private int[][] board;
     private String status;
     private String finishReason;
+    private String gameMode;
     private Integer moveCount;
+    private Integer lastMoveRow;
+    private Integer lastMoveCol;
     private Long blackPlayerId;
     private String blackPlayerName;
     private Long whitePlayerId;

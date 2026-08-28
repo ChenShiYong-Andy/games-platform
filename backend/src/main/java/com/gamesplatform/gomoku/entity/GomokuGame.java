@@ -20,8 +20,12 @@ public class GomokuGame {
     private Long winnerId;
     private String boardJson;
     private Integer moveCount;
+    private Integer lastMoveRow;
+    private Integer lastMoveCol;
     private String status;
     private String finishReason;
+    private String gameMode;
+    private String humanColor;
     private LocalDateTime createdAt;
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;

@@ -61,4 +61,23 @@ class ChineseChessRulesTest {
         assertTrue(ChineseChessRules.isInCheck(board, true));
         assertFalse(ChineseChessRules.isInCheck(board, false));
     }
+
+    @Test
+    void aiAlwaysReturnsALegalOpeningMove() {
+        int[][] board = ChineseChessRules.initialBoard();
+        int[] move = ChineseChessAi.chooseMove(board, true);
+
+        assertNotNull(move);
+        assertTrue(ChineseChessRules.isLegalMove(board, move[0], move[1], move[2], move[3], true));
+    }
+
+    @Test
+    void aiPrioritizesCapturingTheGeneral() {
+        int[][] board = new int[10][9];
+        board[9][3] = ChineseChessRules.GENERAL;
+        board[0][4] = -ChineseChessRules.GENERAL;
+        board[1][4] = ChineseChessRules.ROOK;
+
+        assertArrayEquals(new int[]{1, 4, 0, 4}, ChineseChessAi.chooseMove(board, true));
+    }
 }

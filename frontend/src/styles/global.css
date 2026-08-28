@@ -11,6 +11,13 @@ body {
   min-height: 100vh;
 }
 
+html.game-screen-locked,
+html.game-screen-locked body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 a {
   text-decoration: none;
   color: inherit;

@@ -26,6 +26,8 @@ public class ChineseChessGame {
     private Integer lastToCol;
     private String status;
     private String finishReason;
+    private String gameMode;
+    private String humanColor;
     private LocalDateTime createdAt;
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;

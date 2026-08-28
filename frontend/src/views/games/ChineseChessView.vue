@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getData, postData } from '@/api'
@@ -23,18 +23,20 @@ let polling = false
 
 const isPlaying = computed(() => game.value?.status === 'IN_PROGRESS')
 const isFinished = computed(() => ['RED_WON', 'BLACK_WON', 'CANCELLED'].includes(game.value?.status || ''))
-const didWin = computed(() => game.value?.winnerId === authStore.user?.id)
-const didLose = computed(() => authStore.user?.id != null
-  && game.value?.winnerId != null && game.value.winnerId !== authStore.user.id)
+const didWin = computed(() => {
+  const current = game.value
+  return !!current && current.status === `${current.myColor}_WON`
+})
+const didLose = computed(() => !!game.value?.status.endsWith('_WON') && !didWin.value)
 const statusText = computed(() => {
   if (!game.value) return ''
   if (game.value.status === 'WAITING') return '等待好友加入…'
   if (game.value.status === 'CANCELLED') return '房间已取消'
   if (game.value.status.endsWith('_WON')) {
     if (game.value.finishReason === 'SURRENDER') {
-      return game.value.winnerId === authStore.user?.id ? '对方已认输，你赢了（本局不计积分）' : '你已认输（本局不计积分）'
+      return didWin.value ? '对方已认输，你赢了（本局不计积分）' : '你已认输（本局不计积分）'
     }
-    return game.value.winnerId === authStore.user?.id ? '你赢了！获得 10 积分' : '你输了，获得 5 积分'
+    return didWin.value ? '你赢了！获得 10 积分' : '你输了，获得 5 积分'
   }
   if (game.value.inCheck) {
     return game.value.myTurn ? '你被将军了，请先解将' : '将军！等待对方解将…'
@@ -72,6 +74,13 @@ async function createRoom() {
   loading.value = true
   try {
     setGame(await postData<ChineseChessGame>('/chess/rooms'))
+  } catch (error) { showError(error) } finally { loading.value = false }
+}
+
+async function createAiGame() {
+  loading.value = true
+  try {
+    setGame(await postData<ChineseChessGame>('/chess/ai-games'))
   } catch (error) { showError(error) } finally { loading.value = false }
 }
 
@@ -194,6 +203,13 @@ function showError(error: unknown) {
   ElMessage.error(error instanceof Error ? error.message : '操作失败')
 }
 
+function setScreenLocked(locked: boolean) {
+  if (locked) window.scrollTo({ top: 0 })
+  document.documentElement.classList.toggle('game-screen-locked', locked)
+}
+
+watch(isPlaying, setScreenLocked, { flush: 'post' })
+
 onMounted(async () => {
   const savedId = localStorage.getItem('chessGameId')
   try {
@@ -209,20 +225,23 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  setScreenLocked(false)
   if (pollTimer !== null) window.clearInterval(pollTimer)
   if (roomPollTimer !== null) window.clearInterval(roomPollTimer)
 })
 </script>
 
 <template>
-  <div class="page-container chess-page">
+  <div class="page-container chess-page" :class="{ 'game-active': isPlaying }">
     <button class="back-btn" @click="router.push('/')">← 返回游戏大厅</button>
     <header class="game-header">
-      <div><h1>♟️ 中国象棋</h1><p>好友在线对弈 · 胜者 +10 积分 · 败者 +5 积分</p></div>
+      <div><h1>♟️ 中国象棋</h1><p>支持好友对弈与人机对局 · 胜者 +10 积分 · 败者 +5 积分</p></div>
       <button v-if="game && isFinished" class="primary-btn" @click="resetGame">再来一局</button>
     </header>
 
     <section v-if="!game" class="lobby card">
+      <div class="lobby-option"><span>🤖</span><h2>人机对局</h2><p>立即挑战电脑，开局随机分配红黑方。</p><button class="primary-btn" :disabled="loading" @click="createAiGame">开始人机对局</button></div>
+      <div class="divider"><span>或</span></div>
       <div class="lobby-option"><span>🏠</span><h2>创建房间</h2><p>分享房间码给好友，开始时随机分配红黑方。</p><button class="primary-btn" :disabled="loading" @click="createRoom">创建邀请房间</button></div>
       <div class="divider"><span>或</span></div>
       <div class="lobby-option">
@@ -297,23 +316,33 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .chess-page { max-width: 980px; }
+.chess-page.game-active { height: calc(100dvh - 112px); padding-top: 0; padding-bottom: 0; display: flex; flex-direction: column; overflow: hidden; }
+.game-active .back-btn { margin-bottom: 6px; flex: 0 0 auto; }
+.game-active .game-header { margin-bottom: 10px; flex: 0 0 auto; }
+.game-active .match-card { margin-bottom: 6px; min-height: 82px; padding-top: 8px; padding-bottom: 8px; flex: 0 0 auto; }
+.game-active .play-area { flex: 1 1 auto; min-height: 0; }
+.game-active .board-wrap { min-height: 0; padding: 3px 0; display: flex; align-items: center; }
+.game-active .chess-board { --cell: clamp(28px, calc((100dvh - 410px) / 10), 54px); }
+.game-active .move-guide { min-height: 0; overflow-y: auto; }
+.game-active .actions { margin: 5px 0 0; flex: 0 0 auto; }
 .back-btn { border: 0; background: none; color: #9a3427; cursor: pointer; margin-bottom: 18px; font-weight: 600; }
 .game-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 16px; }
 .game-header h1 { font-size: 30px; margin-bottom: 6px; }.game-header p,.lobby p { color: #777; }
 .primary-btn,.danger-btn { border: 0; border-radius: 9px; padding: 11px 20px; cursor: pointer; color: #fff; font-weight: 600; }.primary-btn { background: #a63d2f; }.primary-btn:disabled { opacity: .55; }
 .danger-btn { background: #fff; color: #c64a3b; border: 1px solid #e8aba3; }
-.lobby { display: grid; grid-template-columns: 1fr auto 1fr; gap: 32px; padding: 42px; }.lobby-option { text-align: center; padding: 10px 24px; }.lobby-option>span { font-size: 44px; }.lobby h2 { margin: 12px 0 8px; }.lobby p { min-height: 44px; margin-bottom: 22px; }.divider { width: 1px; background: #eee; position: relative; }.divider span { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); background: #fff; color: #aaa; padding: 10px 0; }
+.lobby { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 16px; padding: 34px 24px; }.lobby-option { text-align: center; padding: 10px 12px; }.lobby-option>span { font-size: 44px; }.lobby h2 { margin: 12px 0 8px; }.lobby p { min-height: 44px; margin-bottom: 22px; }.divider { width: 1px; background: #eee; position: relative; }.divider span { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); background: #fff; color: #aaa; padding: 10px 0; }
 .waiting-list { min-height:94px;max-height:210px;overflow:auto;display:flex;flex-direction:column;gap:8px;text-align:left; }.waiting-list.loading { opacity:.6; }.waiting-room { display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;border:1px solid #ecd9cd;border-radius:9px;background:#fff9f4; }.waiting-room strong { display:block;color:#5c4038;font-size:14px; }.waiting-room small { display:block;color:#a1847a;margin-top:2px; }.join-btn { border:0;border-radius:7px;padding:7px 12px;background:#a63d2f;color:#fff;cursor:pointer;font-weight:600; }.rooms-empty { display:grid;place-items:center;min-height:90px;color:#aaa;font-size:13px; }.refresh-btn { border:0;background:none;color:#a63d2f;cursor:pointer;margin-top:10px; }
 .match-card { display: grid; grid-template-columns: 1fr 1.5fr 1fr; align-items: center; margin-bottom: 18px; padding: 12px 22px; min-height: 104px; }.player { display: flex; align-items: center; gap: 10px; opacity: .62; }.player.active { opacity: 1; }.black-player { justify-content: flex-end; text-align: right; }.player small { display:block;color:#999;margin-top:2px; }.mini-piece,.piece { display:grid;place-items:center;border-radius:50%;background:#f3d492;border:2px solid currentColor;font-family:STKaiti,KaiTi,serif;font-weight:800;box-shadow:1px 2px 4px rgba(50,20,5,.3); }.mini-piece { width:32px;height:32px; }.red { color:#b32222; }.black { color:#26211d; }
 .match-center { text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px; }.status-group { display:flex;align-items:center;justify-content:center;gap:12px; }.check-gif { display:block;width:72px;height:72px;flex:0 0 auto;object-fit:contain;border-radius:8px; }.room-code { border:0;background:#fff1df;color:#8e3024;border-radius:8px;padding:8px;cursor:pointer; }.room-code strong { letter-spacing:3px;font-size:18px;margin:0 4px; }.room-code small { color:#ad7868; }.status.turn { color:#b32222; }
 .play-area { display:grid;grid-template-columns:auto 260px;gap:24px;align-items:stretch;justify-content:center; }.board-wrap { overflow:auto;padding:8px 0 14px; }.chess-board { --cell:54px; position:relative; width:calc(var(--cell) * 9 + 28px); height:calc(var(--cell) * 10 + 28px); margin:auto;padding:14px;display:grid;grid-template-columns:repeat(9,var(--cell));grid-template-rows:repeat(10,var(--cell));background-color:#d9a85f;background-image:linear-gradient(rgba(70,39,13,.7) 1px,transparent 1px),linear-gradient(90deg,rgba(70,39,13,.7) 1px,transparent 1px);background-size:var(--cell) var(--cell);background-position:calc(14px + var(--cell)/2) calc(14px + var(--cell)/2);border:3px solid #805021;border-radius:5px;box-shadow:0 8px 24px rgba(70,39,13,.28); }
 .river { position:absolute;z-index:0;left:calc(14px + var(--cell)/2);right:calc(14px + var(--cell)/2);top:calc(14px + var(--cell)*4.5);height:var(--cell);display:flex;align-items:center;justify-content:space-around;background:#d9a85f;border-top:1px solid #694019;border-bottom:1px solid #694019;color:#643818;font:700 21px STKaiti,KaiTi,serif;letter-spacing:5px; }
-.position { position:relative;z-index:1;width:var(--cell);height:var(--cell);border:0;background:transparent;padding:0;display:grid;place-items:center;cursor:default; }.position.selectable { cursor:pointer; }.position.last::after { content:'';position:absolute;width:12px;height:12px;border:3px solid #2666b2;border-radius:3px; }.position.selected::after { content:'';position:absolute;inset:2px;z-index:3;border:3px solid #ffd21f;border-radius:50%;box-shadow:0 0 0 3px rgba(255,246,148,.8),0 0 14px rgba(255,199,0,.85);pointer-events:none; }.piece { position:relative;z-index:2;width:44px;height:44px;font-size:25px;background:radial-gradient(circle at 35% 25%,#ffe4a9,#d4a05a 75%);transition:transform .16s ease,border-width .16s ease,background .16s ease,box-shadow .16s ease; }
+.position { position:relative;z-index:1;width:var(--cell);height:var(--cell);border:0;background:transparent;padding:0;display:grid;place-items:center;cursor:default; }.position.selectable { cursor:pointer; }.position.last::after { content:'';position:absolute;width:12px;height:12px;border:3px solid #2666b2;border-radius:3px; }.position.selected::after { content:'';position:absolute;inset:2px;z-index:3;border:3px solid #ffd21f;border-radius:50%;box-shadow:0 0 0 3px rgba(255,246,148,.8),0 0 14px rgba(255,199,0,.85);pointer-events:none; }.piece { position:relative;z-index:2;width:clamp(24px,calc(var(--cell) - 8px),44px);height:clamp(24px,calc(var(--cell) - 8px),44px);font-size:clamp(17px,calc(var(--cell) * .46),25px);background:radial-gradient(circle at 35% 25%,#ffe4a9,#d4a05a 75%);transition:transform .16s ease,border-width .16s ease,background .16s ease,box-shadow .16s ease; }
 .position.selected .piece { transform:scale(1.08);border-width:3px;background:radial-gradient(circle at 35% 25%,#fff7b2,#efbd54 72%);box-shadow:0 3px 8px rgba(56,31,8,.45),0 0 0 3px rgba(255,218,51,.75); }
 .result-animation { position:absolute;inset:14px;z-index:5;display:grid;place-items:center;pointer-events:none;animation:result-pop .38s cubic-bezier(.2,1.35,.45,1) both; }.result-animation img { display:block;width:min(86%,480px);max-height:86%;object-fit:contain;border-radius:10px;box-shadow:0 12px 34px rgba(58,35,11,.3); }
 @keyframes result-pop { from { opacity:0;transform:scale(.55) } to { opacity:1;transform:scale(1) } }
 .move-guide { width:260px;min-height:100%;padding:22px;background:linear-gradient(165deg,#fffdf7,#fff8e8);border:1px solid #ead7b9; }.move-guide h2 { color:#713c24;font-size:19px;margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid #ead7b9; }.guide-piece { display:flex;align-items:center;gap:12px;margin-bottom:20px; }.guide-piece .mini-piece { width:46px;height:46px;font-size:26px;flex:0 0 auto; }.guide-piece strong { display:block;font-size:20px; }.guide-piece small { display:block;color:#999;margin-top:3px; }.guide-list { display:flex;flex-direction:column;gap:16px; }.guide-list div { padding-left:12px;border-left:3px solid #d9a85f; }.guide-list dt { color:#8f392c;font-size:13px;font-weight:700;margin-bottom:5px; }.guide-list dd { color:#625b53;font-size:13px;line-height:1.65;margin:0; }.guide-tip { margin-top:22px;padding:9px 10px;border-radius:8px;background:#fff0c9;color:#9b7040;font-size:12px;text-align:center; }.guide-empty { min-height:360px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#aaa; }.guide-empty span { font-size:38px;margin-bottom:12px; }.guide-empty strong { color:#786b5d;margin-bottom:8px; }.guide-empty p { max-width:180px;font-size:13px;line-height:1.6; }
 .actions { display:flex;justify-content:center;align-items:center;gap:20px;color:#999;margin:12px 0; }
 @media(max-width:860px){.play-area{grid-template-columns:1fr;gap:14px}.move-guide{width:100%;min-height:0}.guide-empty{min-height:150px}.guide-list{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.guide-list div{padding:10px;border-left:0;border-top:3px solid #d9a85f;background:#fff;border-radius:7px}}
-@media(max-width:680px){.lobby{grid-template-columns:1fr;padding:24px 16px;gap:14px}.divider{width:100%;height:1px}.divider span{padding:0 10px}.match-card{grid-template-columns:1fr 1fr;gap:8px}.match-center{grid-column:1/-1;grid-row:2}.check-gif{width:58px;height:58px}.status-group{gap:8px}.chess-board{--cell:39px}.piece{width:33px;height:33px;font-size:20px}.river{font-size:17px}.game-header h1{font-size:25px}.guide-list{grid-template-columns:1fr}.guide-empty{min-height:120px}}
+@media(max-width:680px){.lobby{grid-template-columns:1fr;padding:24px 16px;gap:14px}.divider{width:100%;height:1px}.divider span{padding:0 10px}.match-card{grid-template-columns:1fr 1fr;gap:8px}.match-center{grid-column:1/-1;grid-row:2}.check-gif{width:58px;height:58px}.status-group{gap:8px}.chess-board{--cell:39px}.piece{width:33px;height:33px;font-size:20px}.river{font-size:17px}.game-header h1{font-size:25px}.guide-list{grid-template-columns:1fr}.guide-empty{min-height:120px}.game-active .game-header p{display:none}.game-active .chess-board{--cell:clamp(29px,calc((100dvh - 400px)/10),39px)}.game-active .move-guide{display:none}}
+@media(max-height:800px){.game-active .game-header p{display:none}.game-active .game-header h1{font-size:25px}.game-active .move-guide{padding-top:14px;padding-bottom:14px}}
 </style>

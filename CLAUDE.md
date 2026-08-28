@@ -43,6 +43,8 @@ backend/src/main/java/com/gamesplatform/
 │   ├── engine/      # GameEngine 接口 + SudokuGameEngine 实现 + SudokuGenerator
 │   └── domain/      # GameSession, GameResult, GameSubmitCommand (通用领域对象)
 ├── sudoku/          # 数独 HTTP 层 (SudokuController, SudokuService, SudokuGameMapper)
+├── gomoku/          # 五子棋好友房间、人机对局、规则与结算
+├── chess/           # 中国象棋好友房间、人机对局、规则与结算
 ├── pet/             # 宠物养成与积分兑换 (PetController, PetService, 权益/背包/订单 Mapper)
 ├── points/          # 积分流水 (PointsController, PointsService, PointTransactionMapper)
 └── ranking/         # 排行榜 (RankingController, RankingService)

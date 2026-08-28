@@ -68,8 +68,11 @@ export interface GomokuGame {
   board: number[][]
   status: 'WAITING' | 'IN_PROGRESS' | 'BLACK_WON' | 'WHITE_WON' | 'DRAW' | 'CANCELLED'
   finishReason: 'NORMAL' | 'SURRENDER' | 'DRAW' | 'CANCELLED' | null
+  gameMode: 'FRIEND' | 'AI'
   moveCount: number
-  blackPlayerId: number
+  lastMoveRow: number | null
+  lastMoveCol: number | null
+  blackPlayerId: number | null
   blackPlayerName: string
   whitePlayerId: number | null
   whitePlayerName: string | null
@@ -93,8 +96,9 @@ export interface ChineseChessGame {
   board: number[][]
   status: 'WAITING' | 'IN_PROGRESS' | 'RED_WON' | 'BLACK_WON' | 'CANCELLED'
   finishReason: 'NORMAL' | 'SURRENDER' | 'CANCELLED' | null
+  gameMode: 'FRIEND' | 'AI'
   moveCount: number
-  redPlayerId: number
+  redPlayerId: number | null
   redPlayerName: string
   blackPlayerId: number | null
   blackPlayerName: string | null

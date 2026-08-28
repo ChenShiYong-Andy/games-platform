@@ -3,7 +3,13 @@
     "allow": [
       "Bash(git add *)",
       "Bash(git push *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(mysql --version)",
+      "Bash(lsof -i :8080 -sTCP:LISTEN)",
+      "Bash(docker version *)",
+      "Bash(mvn spring-boot:run)",
+      "Bash(javac -cp /Users/andy/.m2/repository/com/mysql/mysql-connector-j/8.3.0/mysql-connector-j-8.3.0.jar DbConnTest.java)",
+      "Bash(java -cp .:/Users/andy/.m2/repository/com/mysql/mysql-connector-j/8.3.0/mysql-connector-j-8.3.0.jar DbConnTest)"
     ]
   }
 }

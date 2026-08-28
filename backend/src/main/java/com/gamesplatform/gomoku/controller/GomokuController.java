@@ -24,6 +24,11 @@ public class GomokuController {
         return ApiResponse.success(gomokuService.createRoom((Long) authentication.getPrincipal()));
     }
 
+    @PostMapping("/ai-games")
+    public ApiResponse<GomokuGameResponse> createAiGame(Authentication authentication) {
+        return ApiResponse.success(gomokuService.createAiGame((Long) authentication.getPrincipal()));
+    }
+
     @GetMapping("/rooms/waiting")
     public ApiResponse<List<WaitingRoomResponse>> getWaitingRooms(Authentication authentication) {
         return ApiResponse.success(gomokuService.getWaitingRooms((Long) authentication.getPrincipal()));

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gamesplatform.common.BusinessException;
+import com.gamesplatform.gomoku.domain.GomokuAi;
 import com.gamesplatform.gomoku.domain.GomokuRules;
 import com.gamesplatform.gomoku.dto.GomokuGameResponse;
 import com.gamesplatform.gomoku.dto.MoveRequest;
@@ -49,6 +50,7 @@ public class GomokuService {
             game.setBoardJson(toJson(new int[GomokuRules.BOARD_SIZE][GomokuRules.BOARD_SIZE]));
             game.setMoveCount(0);
             game.setStatus("WAITING");
+            game.setGameMode("FRIEND");
             game.setCreatedAt(LocalDateTime.now());
             try {
                 gameMapper.insert(game);
@@ -58,6 +60,36 @@ public class GomokuService {
             }
         }
         throw new BusinessException("房间创建失败，请稍后重试");
+    }
+
+    /** 创建人机对局，随机分配黑白方；电脑执黑时自动完成第一手。 */
+    @Transactional
+    public GomokuGameResponse createAiGame(Long userId) {
+        ensureUserExists(userId);
+        ensureNoActiveGame(userId);
+        GomokuGame game = new GomokuGame();
+        game.setRoomCode(randomRoomCode());
+        game.setBlackPlayerId(userId);
+        game.setWhitePlayerId(userId);
+        game.setCurrentPlayerId(userId);
+        game.setMoveCount(0);
+        game.setStatus("IN_PROGRESS");
+        game.setGameMode("AI");
+        boolean humanBlack = ThreadLocalRandom.current().nextBoolean();
+        game.setHumanColor(humanBlack ? "BLACK" : "WHITE");
+        int[][] board = new int[GomokuRules.BOARD_SIZE][GomokuRules.BOARD_SIZE];
+        if (!humanBlack) {
+            int[] aiMove = GomokuAi.chooseMove(board, 1);
+            board[aiMove[0]][aiMove[1]] = 1;
+            game.setMoveCount(1);
+            game.setLastMoveRow(aiMove[0]);
+            game.setLastMoveCol(aiMove[1]);
+        }
+        game.setBoardJson(toJson(board));
+        game.setCreatedAt(LocalDateTime.now());
+        game.setStartedAt(LocalDateTime.now());
+        gameMapper.insert(game);
+        return toResponse(game, userId, null);
     }
 
     /** 通过房间码加入对局，并随机分配双方黑白颜色。 */
@@ -88,6 +120,7 @@ public class GomokuService {
             game.setCurrentPlayerId(userId);
         }
         game.setStatus("IN_PROGRESS");
+        game.setGameMode("FRIEND");
         game.setStartedAt(LocalDateTime.now());
         gameMapper.updateById(game);
         return toResponse(game, userId, null);
@@ -108,6 +141,7 @@ public class GomokuService {
     public List<WaitingRoomResponse> getWaitingRooms(Long userId) {
         return gameMapper.selectList(new LambdaQueryWrapper<GomokuGame>()
                         .eq(GomokuGame::getStatus, "WAITING")
+                        .eq(GomokuGame::getGameMode, "FRIEND")
                         .ne(GomokuGame::getBlackPlayerId, userId)
                         .orderByAsc(GomokuGame::getCreatedAt)
                         .last("LIMIT 50"))
@@ -146,11 +180,13 @@ public class GomokuService {
         if (board[row][col] != 0) {
             throw new BusinessException("该位置已有棋子");
         }
-        boolean black = userId.equals(game.getBlackPlayerId());
+        boolean aiGame = isAi(game);
+        boolean black = aiGame ? "BLACK".equals(game.getHumanColor()) : userId.equals(game.getBlackPlayerId());
         int stone = black ? 1 : 2;
         board[row][col] = stone;
-        game.setBoardJson(toJson(board));
         game.setMoveCount(game.getMoveCount() + 1);
+        game.setLastMoveRow(row);
+        game.setLastMoveCol(col);
 
         Integer earned = null;
         if (GomokuRules.isWinningMove(board, row, col, stone)) {
@@ -158,17 +194,22 @@ public class GomokuService {
             game.setFinishReason("NORMAL");
             game.setWinnerId(userId);
             game.setCompletedAt(LocalDateTime.now());
-            settle(game, userId, black ? game.getWhitePlayerId() : game.getBlackPlayerId());
+            if (aiGame) awardHuman(game, userId, WIN_POINTS, "GOMOKU_AI_WIN", "五子棋人机对局获胜");
+            else settle(game, userId, black ? game.getWhitePlayerId() : game.getBlackPlayerId());
             earned = WIN_POINTS;
         } else if (game.getMoveCount() == GomokuRules.BOARD_SIZE * GomokuRules.BOARD_SIZE) {
             game.setStatus("DRAW");
             game.setFinishReason("DRAW");
             game.setCompletedAt(LocalDateTime.now());
-            awardDrawPoints(game);
+            if (aiGame) awardHuman(game, userId, LOSE_POINTS, "GOMOKU_AI_DRAW", "五子棋人机对局平局奖励");
+            else awardDrawPoints(game);
             earned = LOSE_POINTS;
+        } else if (aiGame) {
+            earned = performAiMove(game, board, userId, black);
         } else {
             game.setCurrentPlayerId(black ? game.getWhitePlayerId() : game.getBlackPlayerId());
         }
+        game.setBoardJson(toJson(board));
         gameMapper.updateById(game);
         return toResponse(game, userId, earned);
     }
@@ -188,14 +229,47 @@ public class GomokuService {
         if (!"IN_PROGRESS".equals(game.getStatus())) {
             throw new BusinessException("对局已经结束");
         }
-        Long winnerId = userId.equals(game.getBlackPlayerId()) ? game.getWhitePlayerId() : game.getBlackPlayerId();
-        boolean blackWon = winnerId.equals(game.getBlackPlayerId());
+        boolean aiGame = isAi(game);
+        boolean humanBlack = aiGame ? "BLACK".equals(game.getHumanColor()) : userId.equals(game.getBlackPlayerId());
+        Long winnerId = aiGame ? null : (humanBlack ? game.getWhitePlayerId() : game.getBlackPlayerId());
+        boolean blackWon = aiGame ? !humanBlack : winnerId.equals(game.getBlackPlayerId());
         game.setStatus(blackWon ? "BLACK_WON" : "WHITE_WON");
         game.setFinishReason("SURRENDER");
         game.setWinnerId(winnerId);
         game.setCompletedAt(LocalDateTime.now());
         gameMapper.updateById(game);
         return toResponse(game, userId, 0);
+    }
+
+    private Integer performAiMove(GomokuGame game, int[][] board, Long userId, boolean humanBlack) {
+        int aiStone = humanBlack ? 2 : 1;
+        int[] move = GomokuAi.chooseMove(board, aiStone);
+        if (move == null) return null;
+        board[move[0]][move[1]] = aiStone;
+        game.setMoveCount(game.getMoveCount() + 1);
+        game.setLastMoveRow(move[0]);
+        game.setLastMoveCol(move[1]);
+        if (GomokuRules.isWinningMove(board, move[0], move[1], aiStone)) {
+            game.setStatus(aiStone == 1 ? "BLACK_WON" : "WHITE_WON");
+            game.setFinishReason("NORMAL");
+            game.setWinnerId(null);
+            game.setCompletedAt(LocalDateTime.now());
+            awardHuman(game, userId, LOSE_POINTS, "GOMOKU_AI_LOSE", "五子棋人机对局参与奖励");
+            return LOSE_POINTS;
+        }
+        if (game.getMoveCount() == GomokuRules.BOARD_SIZE * GomokuRules.BOARD_SIZE) {
+            game.setStatus("DRAW");
+            game.setFinishReason("DRAW");
+            game.setCompletedAt(LocalDateTime.now());
+            awardHuman(game, userId, LOSE_POINTS, "GOMOKU_AI_DRAW", "五子棋人机对局平局奖励");
+            return LOSE_POINTS;
+        }
+        game.setCurrentPlayerId(userId);
+        return null;
+    }
+
+    private void awardHuman(GomokuGame game, Long userId, int points, String type, String description) {
+        pointsService.awardPoints(userId, points, type, game.getId(), description);
     }
 
     private void settle(GomokuGame game, Long winnerId, Long loserId) {
@@ -246,17 +320,39 @@ public class GomokuService {
     }
 
     private GomokuGameResponse toResponse(GomokuGame game, Long userId, Integer pointsEarned) {
+        if (isAi(game)) {
+            User human = userMapper.selectById(userId);
+            boolean humanBlack = "BLACK".equals(game.getHumanColor());
+            return GomokuGameResponse.builder()
+                    .id(game.getId()).roomCode(game.getRoomCode()).board(fromJson(game.getBoardJson()))
+                    .status(game.getStatus()).finishReason(game.getFinishReason()).gameMode("AI")
+                    .moveCount(game.getMoveCount())
+                    .lastMoveRow(game.getLastMoveRow()).lastMoveCol(game.getLastMoveCol())
+                    .blackPlayerId(humanBlack ? userId : null)
+                    .blackPlayerName(humanBlack ? human.getNickname() : "电脑")
+                    .whitePlayerId(humanBlack ? null : userId)
+                    .whitePlayerName(humanBlack ? "电脑" : human.getNickname())
+                    .currentPlayerId(game.getCurrentPlayerId()).winnerId(game.getWinnerId())
+                    .myColor(game.getHumanColor())
+                    .myTurn("IN_PROGRESS".equals(game.getStatus()))
+                    .pointsEarned(pointsEarned).build();
+        }
         User black = userMapper.selectById(game.getBlackPlayerId());
         User white = game.getWhitePlayerId() == null ? null : userMapper.selectById(game.getWhitePlayerId());
         return GomokuGameResponse.builder()
                 .id(game.getId()).roomCode(game.getRoomCode()).board(fromJson(game.getBoardJson()))
-                .status(game.getStatus()).finishReason(game.getFinishReason()).moveCount(game.getMoveCount())
+                .status(game.getStatus()).finishReason(game.getFinishReason()).gameMode("FRIEND").moveCount(game.getMoveCount())
+                .lastMoveRow(game.getLastMoveRow()).lastMoveCol(game.getLastMoveCol())
                 .blackPlayerId(game.getBlackPlayerId()).blackPlayerName(black == null ? "未知玩家" : black.getNickname())
                 .whitePlayerId(game.getWhitePlayerId()).whitePlayerName(white == null ? null : white.getNickname())
                 .currentPlayerId(game.getCurrentPlayerId()).winnerId(game.getWinnerId())
                 .myColor(userId.equals(game.getBlackPlayerId()) ? "BLACK" : "WHITE")
                 .myTurn("IN_PROGRESS".equals(game.getStatus()) && userId.equals(game.getCurrentPlayerId()))
                 .pointsEarned(pointsEarned).build();
+    }
+
+    private boolean isAi(GomokuGame game) {
+        return "AI".equals(game.getGameMode());
     }
 
     private String normalizeRoomCode(String roomCode) {

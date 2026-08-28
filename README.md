@@ -17,8 +17,8 @@
 - **用户中心** — 注册、登录、资料维护、头像管理
 - **认证中心** — JWT 认证、BCrypt 密码加密
 - **数独中心** — 创建游戏、难度选择、计时、校验、清空重做、结算、记录
-- **五子棋中心** — 等待房间列表、随机分配黑白方、双人轮流落子、正常胜负积分结算（认输不计积分）
-- **象棋中心** — 等待房间列表、随机分配红黑方、好友在线对弈、走子校验、正常胜负积分结算（认输不计积分）
+- **五子棋中心** — 好友房间与人机对局、随机分配黑白方、服务端落子和胜负积分结算（认输不计积分）
+- **象棋中心** — 好友房间与人机对局、随机分配红黑方、服务端走子校验和胜负积分结算（认输不计积分）
 - **宠物养成** — 宠物状态、权益商店、积分兑换、背包使用、装扮切换
 - **积分中心** — 游戏积分奖励、流水记录、用户等级
 - **排行榜中心** — 总积分榜、本周积分榜、数独速度榜
@@ -232,7 +232,7 @@ public interface GameEngine {
 
 当前外部数独接口未开放提示功能；`getHint` 仍保留在引擎契约中，便于规则引擎内部扩展。
 
-五子棋和中国象棋属于双人状态型游戏，分别由 `GomokuRules` 和 `ChineseChessRules` 执行服务端规则判断，由对应 Service 管理房间、随机阵营、回合、认输和积分结算。对局状态写入 MySQL，前端通过短轮询同步双方棋盘。
+五子棋和中国象棋属于状态型棋类游戏，分别由 `GomokuRules` 和 `ChineseChessRules` 执行服务端规则判断，由对应 Service 管理好友房间、人机对局、随机阵营、回合、认输和积分结算。`GomokuAi` 与 `ChineseChessAi` 负责电脑走棋。对局状态写入 MySQL，好友模式下前端通过短轮询同步双方棋盘。
 
 数据库结构由 Flyway 管理：`V1__init.sql` 用于基础表初始化，后续 `V*__upgrade.sql` 用于宠物、游戏房间及结算字段升级。应用启动时会自动执行尚未应用的迁移。
 
@@ -252,6 +252,7 @@ public interface GameEngine {
 | POST | /api/sudoku/games/{id}/validate | 校验数独填数 |
 | POST | /api/sudoku/games/{id}/submit | 提交游戏 |
 | POST | /api/gomoku/rooms | 创建五子棋邀请房间 |
+| POST | /api/gomoku/ai-games | 创建五子棋人机对局 |
 | GET | /api/gomoku/rooms/waiting | 查询等待加入的五子棋房间 |
 | POST | /api/gomoku/rooms/join | 通过房间码加入对局 |
 | GET | /api/gomoku/games/active | 恢复当前未结束对局 |
@@ -259,6 +260,7 @@ public interface GameEngine {
 | POST | /api/gomoku/games/{id}/moves | 五子棋落子 |
 | POST | /api/gomoku/games/{id}/surrender | 认输或取消等待中的房间 |
 | POST | /api/chess/rooms | 创建象棋邀请房间 |
+| POST | /api/chess/ai-games | 创建象棋人机对局 |
 | GET | /api/chess/rooms/waiting | 查询等待加入的象棋房间 |
 | POST | /api/chess/rooms/join | 通过房间码加入象棋对局 |
 | GET | /api/chess/games/active | 恢复当前未结束的象棋对局 |

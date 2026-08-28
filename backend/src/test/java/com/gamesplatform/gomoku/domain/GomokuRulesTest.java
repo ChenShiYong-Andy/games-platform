@@ -3,6 +3,7 @@ package com.gamesplatform.gomoku.domain;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GomokuRulesTest {
@@ -24,6 +25,23 @@ class GomokuRulesTest {
         int[][] board = new int[GomokuRules.BOARD_SIZE][GomokuRules.BOARD_SIZE];
         for (int col = 2; col < 6; col++) board[8][col] = 2;
         assertFalse(GomokuRules.isWinningMove(board, 8, 4, 2));
+    }
+
+    @Test
+    void aiFinishesItsOwnFiveBeforeBlocking() {
+        int[][] board = new int[GomokuRules.BOARD_SIZE][GomokuRules.BOARD_SIZE];
+        for (int col = 3; col < 7; col++) board[5][col] = 2;
+        for (int col = 3; col < 7; col++) board[9][col] = 1;
+
+        assertArrayEquals(new int[]{5, 2}, GomokuAi.chooseMove(board, 2));
+    }
+
+    @Test
+    void aiBlocksOpponentImmediateWin() {
+        int[][] board = new int[GomokuRules.BOARD_SIZE][GomokuRules.BOARD_SIZE];
+        for (int col = 4; col < 8; col++) board[7][col] = 1;
+
+        assertArrayEquals(new int[]{7, 3}, GomokuAi.chooseMove(board, 2));
     }
 
     private int[][] boardWithLine(int row, int col, int dr, int dc) {
