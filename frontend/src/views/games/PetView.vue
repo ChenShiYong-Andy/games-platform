@@ -324,7 +324,6 @@ async function exchangeBenefit(item: PetBenefitItem) {
     ElMessage.success(`已兑换 ${result.benefitName} x${quantity}`)
     exchangeQuantities.value[item.benefitId] = 1
     await refreshAfterChange(undefined, result.availablePoints)
-    activeTab.value = 'bag'
   } catch (e: unknown) {
     ElMessage.error(e instanceof Error ? e.message : '兑换失败')
   } finally {
@@ -444,21 +443,12 @@ onMounted(() => {
     </section>
 
     <template v-else>
+      <div class="pet-detail-layout">
+      <div class="pet-growth-column">
       <section
         class="pet-stage"
         :class="{ forest: petInfo?.currentRoomTheme === 'PET_ROOM_FOREST' }"
       >
-        <div class="pet-summary">
-          <p class="eyebrow">
-            {{ petInfo?.petTypeName }} · {{ petInfo?.petColorName }}
-          </p>
-          <h1>{{ petInfo?.petName }}</h1>
-          <div class="points-pill">
-            <span>可用积分</span>
-            <strong>{{ availablePoints }}</strong>
-          </div>
-        </div>
-
         <div class="pet-display">
           <div class="pet-avatar" :class="{ hat: petInfo?.currentHatCode }">
             <span class="hat-mark" v-if="petInfo?.currentHatCode">🎩</span>
@@ -477,41 +467,17 @@ onMounted(() => {
               >小床已放置</span
             >
           </div>
-          <p class="next-stage">{{ nextStageText }}</p>
         </div>
 
         <div class="status-panel">
-          <div class="status-row">
-            <span>饥饿</span>
-            <el-progress
-              :percentage="petInfo?.hunger || 0"
-              :color="statusColor(petInfo?.hunger || 0)"
-            />
-          </div>
-          <div class="status-row">
-            <span>清洁</span>
-            <el-progress
-              :percentage="petInfo?.clean || 0"
-              :color="statusColor(petInfo?.clean || 0)"
-            />
-          </div>
-          <div class="status-row">
-            <span>快乐</span>
-            <el-progress
-              :percentage="petInfo?.happiness || 0"
-              :color="statusColor(petInfo?.happiness || 0)"
-            />
-          </div>
-          <div class="status-row">
-            <span>体力</span>
-            <el-progress
-              :percentage="petInfo?.energy || 0"
-              :color="statusColor(petInfo?.energy || 0)"
-            />
-          </div>
-          <div class="exp-line">
-            <div class="exp-header">
-              <span>成长值</span>
+          <div class="growth-status-block">
+            <div class="growth-profile-header">
+              <div>
+                <p class="eyebrow">
+                  {{ petInfo?.petTypeName }} · {{ petInfo?.petColorName }}
+                </p>
+                <h2>{{ petInfo?.petName }}</h2>
+              </div>
               <el-button
                 class="grow-button"
                 :loading="growing"
@@ -519,6 +485,13 @@ onMounted(() => {
               >
                 点击成长
               </el-button>
+            </div>
+            <div class="growth-actions-row">
+              <div class="points-pill compact">
+                <span>可用积分</span>
+                <strong>{{ availablePoints }}</strong>
+              </div>
+              <p class="next-stage">{{ nextStageText }}</p>
             </div>
             <div class="charge-progress">
               <div
@@ -530,6 +503,44 @@ onMounted(() => {
                 <strong>{{ petInfo?.stageName }}</strong>
                 <span>{{ petMood }}</span>
               </div>
+            </div>
+          </div>
+
+          <div class="care-status-block">
+            <div class="status-block-heading">
+              <div>
+                <small>生活状态</small>
+                <strong>{{ petMood }}</strong>
+              </div>
+              <span>当前状态</span>
+            </div>
+            <div class="status-row">
+              <span>饥饿</span>
+              <el-progress
+                :percentage="petInfo?.hunger || 0"
+                :color="statusColor(petInfo?.hunger || 0)"
+              />
+            </div>
+            <div class="status-row">
+              <span>清洁</span>
+              <el-progress
+                :percentage="petInfo?.clean || 0"
+                :color="statusColor(petInfo?.clean || 0)"
+              />
+            </div>
+            <div class="status-row">
+              <span>快乐</span>
+              <el-progress
+                :percentage="petInfo?.happiness || 0"
+                :color="statusColor(petInfo?.happiness || 0)"
+              />
+            </div>
+            <div class="status-row">
+              <span>体力</span>
+              <el-progress
+                :percentage="petInfo?.energy || 0"
+                :color="statusColor(petInfo?.energy || 0)"
+              />
             </div>
           </div>
         </div>
@@ -571,6 +582,7 @@ onMounted(() => {
           </article>
         </div>
       </section>
+      </div>
 
       <section class="pet-workbench">
         <el-tabs v-model="activeTab">
@@ -650,6 +662,7 @@ onMounted(() => {
           </el-tab-pane>
         </el-tabs>
       </section>
+      </div>
     </template>
 
     <el-dialog
@@ -681,6 +694,197 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
+}
+
+.pet-detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(460px, 0.92fr);
+  align-items: start;
+  gap: 24px;
+}
+
+.pet-growth-column {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.pet-detail-layout .room-preview-section,
+.pet-detail-layout .pet-workbench {
+  min-width: 0;
+  padding: 20px;
+}
+
+.pet-detail-layout .pet-workbench {
+  position: sticky;
+  top: 88px;
+  min-height: calc(100dvh - 112px);
+  max-height: calc(100dvh - 112px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.pet-growth-column .pet-stage {
+  grid-template-areas:
+    'display'
+    'status';
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(240px, auto) auto;
+  align-items: stretch;
+  gap: 20px;
+  padding: 26px;
+}
+
+.pet-growth-column .pet-display {
+  grid-area: display;
+  width: 100%;
+  min-height: 270px;
+  align-self: stretch;
+  justify-content: center;
+}
+
+.pet-growth-column .status-panel {
+  grid-area: status;
+  display: grid;
+  grid-template-columns: minmax(260px, 0.88fr) minmax(320px, 1.12fr);
+  align-items: stretch;
+  padding: 10px;
+  gap: 12px;
+}
+
+.growth-status-block,
+.care-status-block {
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.56);
+  border-radius: 14px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.36);
+}
+
+.growth-status-block {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+}
+
+.care-status-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.status-block-heading,
+.exp-header,
+.growth-profile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-block-heading {
+  margin-bottom: 2px;
+}
+
+.status-block-heading div,
+.exp-header div,
+.growth-profile-header > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.growth-profile-header .eyebrow {
+  margin: 0;
+  font-size: 12px;
+}
+
+.growth-profile-header h2 {
+  margin: 0;
+  font-size: 23px;
+  line-height: 1.1;
+}
+
+.points-pill.compact {
+  margin: 0;
+  padding: 7px 11px;
+  border-radius: 11px;
+}
+
+.points-pill.compact strong {
+  font-size: 19px;
+}
+
+.growth-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.growth-actions-row .next-stage {
+  margin-left: auto;
+}
+
+.status-block-heading small,
+.exp-header small {
+  color: rgba(51, 37, 31, 0.6);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.status-block-heading strong,
+.exp-header strong {
+  font-size: 17px;
+}
+
+.status-block-heading > span {
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: rgba(255, 255, 255, 0.64);
+  color: rgba(51, 37, 31, 0.62);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.pet-growth-column .pet-avatar {
+  flex: 1;
+  min-height: 240px;
+  width: 100%;
+}
+
+.pet-growth-column .hero-gif {
+  width: min(58%, 290px);
+  height: min(58%, 250px);
+  object-fit: contain;
+  object-position: center;
+}
+
+.pet-growth-column .next-stage {
+  min-height: 34px;
+  padding: 7px 16px;
+  font-size: 14px;
+}
+
+.room-preview-section .stage-grid {
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 12px;
+}
+
+.room-preview-section .stage-card {
+  min-height: 170px;
+  padding: 12px;
+}
+
+.room-preview-section .stage-figure {
+  height: 72px;
+}
+
+.room-preview-section .preview-gif {
+  width: 82px;
+  height: 82px;
 }
 
 .adopt-page,
@@ -830,9 +1034,9 @@ onMounted(() => {
 }
 
 .pet-stage {
-  min-height: 360px;
+  min-height: 320px;
   border-radius: 24px;
-  padding: 32px;
+  padding: 26px 30px;
   background:
     radial-gradient(
       circle at 20% 20%,
@@ -919,7 +1123,7 @@ onMounted(() => {
 }
 
 .pet-avatar {
-  min-height: 248px;
+  min-height: 220px;
   width: 100%;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.46);
@@ -988,13 +1192,15 @@ onMounted(() => {
 }
 
 .grow-button {
-  min-width: 112px;
-  height: 42px;
+  width: 72px;
+  min-width: 72px;
+  height: 72px;
+  padding: 0;
   border: 0;
-  border-radius: 999px;
+  border-radius: 50%;
   background: linear-gradient(135deg, #ffd75a 0%, #ff9f2f 58%, #ff6f4f 100%);
   color: #3b2615;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 900;
   letter-spacing: 0;
   box-shadow:
@@ -1083,8 +1289,8 @@ onMounted(() => {
 .benefit-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 16px;
-  margin-bottom: 22px;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .benefit-card,
@@ -1096,10 +1302,10 @@ onMounted(() => {
 }
 
 .benefit-card {
-  min-height: 286px;
+  min-height: 258px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
 }
 
 .benefit-icon {
@@ -1200,11 +1406,38 @@ onMounted(() => {
     grid-template-columns: 1fr;
   }
 
+  .pet-growth-column .pet-stage {
+    grid-template-areas:
+      'display'
+      'status';
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+
   .pet-avatar {
     min-height: 220px;
     max-width: 360px;
     width: 100%;
     justify-self: center;
+  }
+}
+
+@media (max-width: 700px) {
+  .pet-growth-column .status-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1180px) {
+  .pet-detail-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .pet-detail-layout .pet-workbench {
+    position: static;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
   }
 }
 

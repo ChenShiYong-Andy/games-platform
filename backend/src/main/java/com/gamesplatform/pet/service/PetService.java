@@ -39,7 +39,7 @@ public class PetService {
     private static final int BENEFIT_STATUS_ADD_VALUE = 5;
     private static final int GROW_STATUS_COST = 10;
     private static final int GROW_STATUS_MIN = 20;
-    private static final int GROW_EXP_ADD_VALUE = 8;
+    private static final int GROW_EXP_ADD_VALUE = 13;
     private static final String POINT_TYPE_EXCHANGE = "PET_BENEFIT_EXCHANGE";
     private static final DateTimeFormatter ORDER_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
 
