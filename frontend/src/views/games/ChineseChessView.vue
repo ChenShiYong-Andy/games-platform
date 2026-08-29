@@ -232,7 +232,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="page-container chess-page" :class="{ 'game-active': isPlaying }">
+  <div
+    class="page-container chess-page"
+    :class="{ 'game-active': game && game.status !== 'WAITING' }"
+  >
     <button class="back-btn" @click="router.push('/')">← 返回游戏大厅</button>
     <header class="game-header">
       <div><h1>♟️ 中国象棋</h1><p>支持好友对弈与人机对局 · 胜者 +10 积分 · 败者 +5 积分</p></div>
@@ -271,23 +274,6 @@ onBeforeUnmount(() => {
       </section>
 
       <div v-if="game.status !== 'WAITING'" class="play-area">
-        <div class="board-wrap">
-          <div class="chess-board">
-            <div class="river"><span>楚 河</span><span>漢 界</span></div>
-            <template v-for="(row, rowIndex) in game.board" :key="rowIndex">
-              <button v-for="(piece, colIndex) in row" :key="`${rowIndex}-${colIndex}`" class="position" :class="cellClass(rowIndex, colIndex, piece)" :aria-label="`第${rowIndex + 1}行第${colIndex + 1}列${piece ? pieceNames[piece] : ''}`" @click="clickPosition(rowIndex, colIndex)">
-                <span v-if="piece" class="piece" :class="piece > 0 ? 'red' : 'black'">{{ pieceNames[piece] }}</span>
-              </button>
-            </template>
-            <div v-if="didWin" class="result-animation" role="status" aria-label="恭喜获胜">
-              <img :src="gameWinGif" alt="恭喜获胜动画">
-            </div>
-            <div v-else-if="didLose" class="result-animation" role="status" aria-label="本局失败">
-              <img :src="gameLoseGif" alt="本局失败动画">
-            </div>
-          </div>
-        </div>
-
         <aside class="move-guide card">
           <h2>走子规则</h2>
           <template v-if="selectedPieceGuide">
@@ -308,6 +294,23 @@ onBeforeUnmount(() => {
             <p>选中后，这里会显示它下一步的走法和限制。</p>
           </div>
         </aside>
+
+        <div class="board-wrap">
+          <div class="chess-board">
+            <div class="river"><span>楚 河</span><span>漢 界</span></div>
+            <template v-for="(row, rowIndex) in game.board" :key="rowIndex">
+              <button v-for="(piece, colIndex) in row" :key="`${rowIndex}-${colIndex}`" class="position" :class="cellClass(rowIndex, colIndex, piece)" :aria-label="`第${rowIndex + 1}行第${colIndex + 1}列${piece ? pieceNames[piece] : ''}`" @click="clickPosition(rowIndex, colIndex)">
+                <span v-if="piece" class="piece" :class="piece > 0 ? 'red' : 'black'">{{ pieceNames[piece] }}</span>
+              </button>
+            </template>
+            <div v-if="didWin" class="result-animation" role="status" aria-label="恭喜获胜">
+              <img :src="gameWinGif" alt="恭喜获胜动画">
+            </div>
+            <div v-else-if="didLose" class="result-animation" role="status" aria-label="本局失败">
+              <img :src="gameLoseGif" alt="本局失败动画">
+            </div>
+          </div>
+        </div>
       </div>
       <div class="actions"><button v-if="!isFinished" class="danger-btn" @click="surrender">{{ game.status === 'WAITING' ? '取消房间' : '认输' }}</button><span v-if="isPlaying">已走 {{ game.moveCount }} 手</span></div>
     </template>
@@ -315,16 +318,19 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.chess-page { max-width: 980px; }
-.chess-page.game-active { height: calc(100dvh - 112px); padding-top: 0; padding-bottom: 0; display: flex; flex-direction: column; overflow: hidden; }
-.game-active .back-btn { margin-bottom: 6px; flex: 0 0 auto; }
-.game-active .game-header { margin-bottom: 10px; flex: 0 0 auto; }
-.game-active .match-card { margin-bottom: 6px; min-height: 82px; padding-top: 8px; padding-bottom: 8px; flex: 0 0 auto; }
-.game-active .play-area { flex: 1 1 auto; min-height: 0; }
-.game-active .board-wrap { min-height: 0; padding: 3px 0; display: flex; align-items: center; }
-.game-active .chess-board { --cell: clamp(28px, calc((100dvh - 410px) / 10), 54px); }
-.game-active .move-guide { min-height: 0; overflow-y: auto; }
-.game-active .actions { margin: 5px 0 0; flex: 0 0 auto; }
+.chess-page { max-width: 1180px; }
+.chess-page.game-active { --chess-cell: clamp(28px, calc((100dvh - 300px) / 10), 50px); height: calc(100dvh - 112px); padding-top: 0; padding-bottom: 0; display: grid; grid-template-areas: 'back back' 'header header' 'play match' 'actions .'; grid-template-columns: max-content minmax(210px, 250px); grid-template-rows: auto auto minmax(0, 1fr) auto; justify-content: center; column-gap: 12px; overflow: hidden; }
+.game-active .back-btn { grid-area: back; justify-self: start; margin-bottom: 6px; }
+.game-active .game-header { grid-area: header; margin-bottom: 8px; }
+.game-active .match-card { grid-area: match; align-self: center; height: calc(var(--chess-cell) * 10 + 28px); margin: 0; padding: 22px 16px; display: flex; flex-direction: column; justify-content: center; gap: 32px; }
+.game-active .match-card .player { width: 100%; }
+.game-active .match-card .black-player { justify-content: flex-start; text-align: left; flex-direction: row-reverse; }
+.game-active .match-center { width: 100%; padding: 18px 6px; border-top: 1px solid #eee3dc; border-bottom: 1px solid #eee3dc; }
+.game-active .play-area { grid-area: play; min-width: 0; min-height: 0; grid-template-columns: minmax(180px, 220px) auto; align-items: center; justify-content: start; gap: 12px; }
+.game-active .board-wrap { min-width: 0; min-height: 0; padding: 3px 0; display: flex; align-items: center; }
+.game-active .chess-board { --cell: var(--chess-cell); }
+.game-active .move-guide { width: auto; height: calc(var(--chess-cell) * 10 + 28px); min-height: 0; overflow-y: auto; }
+.game-active .actions { grid-area: actions; margin: 5px 0 0; }
 .back-btn { border: 0; background: none; color: #9a3427; cursor: pointer; margin-bottom: 18px; font-weight: 600; }
 .game-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 16px; }
 .game-header h1 { font-size: 30px; margin-bottom: 6px; }.game-header p,.lobby p { color: #777; }
@@ -342,7 +348,8 @@ onBeforeUnmount(() => {
 @keyframes result-pop { from { opacity:0;transform:scale(.55) } to { opacity:1;transform:scale(1) } }
 .move-guide { width:260px;min-height:100%;padding:22px;background:linear-gradient(165deg,#fffdf7,#fff8e8);border:1px solid #ead7b9; }.move-guide h2 { color:#713c24;font-size:19px;margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid #ead7b9; }.guide-piece { display:flex;align-items:center;gap:12px;margin-bottom:20px; }.guide-piece .mini-piece { width:46px;height:46px;font-size:26px;flex:0 0 auto; }.guide-piece strong { display:block;font-size:20px; }.guide-piece small { display:block;color:#999;margin-top:3px; }.guide-list { display:flex;flex-direction:column;gap:16px; }.guide-list div { padding-left:12px;border-left:3px solid #d9a85f; }.guide-list dt { color:#8f392c;font-size:13px;font-weight:700;margin-bottom:5px; }.guide-list dd { color:#625b53;font-size:13px;line-height:1.65;margin:0; }.guide-tip { margin-top:22px;padding:9px 10px;border-radius:8px;background:#fff0c9;color:#9b7040;font-size:12px;text-align:center; }.guide-empty { min-height:360px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#aaa; }.guide-empty span { font-size:38px;margin-bottom:12px; }.guide-empty strong { color:#786b5d;margin-bottom:8px; }.guide-empty p { max-width:180px;font-size:13px;line-height:1.6; }
 .actions { display:flex;justify-content:center;align-items:center;gap:20px;color:#999;margin:12px 0; }
+@media(max-width:1000px){.chess-page.game-active{--chess-cell:clamp(28px,calc((100dvh - 420px)/10),46px);grid-template-areas:'back' 'header' 'match' 'play' 'actions';grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto minmax(0,1fr) auto;justify-content:stretch;column-gap:0}.game-active .match-card{height:auto;min-height:0;margin-bottom:4px;padding:8px 14px;display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:8px}.game-active .match-card .black-player{justify-content:flex-end;text-align:right;flex-direction:row}.game-active .match-center{width:auto;padding:0;border:0}.game-active .play-area{grid-template-columns:minmax(180px,220px) auto}.game-active .chess-board{--cell:var(--chess-cell)}}
 @media(max-width:860px){.play-area{grid-template-columns:1fr;gap:14px}.move-guide{width:100%;min-height:0}.guide-empty{min-height:150px}.guide-list{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.guide-list div{padding:10px;border-left:0;border-top:3px solid #d9a85f;background:#fff;border-radius:7px}}
-@media(max-width:680px){.lobby{grid-template-columns:1fr;padding:24px 16px;gap:14px}.divider{width:100%;height:1px}.divider span{padding:0 10px}.match-card{grid-template-columns:1fr 1fr;gap:8px}.match-center{grid-column:1/-1;grid-row:2}.check-gif{width:58px;height:58px}.status-group{gap:8px}.chess-board{--cell:39px}.piece{width:33px;height:33px;font-size:20px}.river{font-size:17px}.game-header h1{font-size:25px}.guide-list{grid-template-columns:1fr}.guide-empty{min-height:120px}.game-active .game-header p{display:none}.game-active .chess-board{--cell:clamp(29px,calc((100dvh - 400px)/10),39px)}.game-active .move-guide{display:none}}
+@media(max-width:680px){.lobby{grid-template-columns:1fr;padding:24px 16px;gap:14px}.divider{width:100%;height:1px}.divider span{padding:0 10px}.match-card{grid-template-columns:1fr 1fr;gap:8px}.match-center{grid-column:1/-1;grid-row:2}.check-gif{width:58px;height:58px}.status-group{gap:8px}.chess-board{--cell:39px}.piece{width:33px;height:33px;font-size:20px}.river{font-size:17px}.game-header h1{font-size:25px}.guide-list{grid-template-columns:1fr}.guide-empty{min-height:120px}.game-active .game-header p{display:none}.game-active .play-area{grid-template-columns:1fr}.game-active .chess-board{--cell:clamp(29px,calc((100dvh - 400px)/10),39px)}.game-active .move-guide{display:none}}
 @media(max-height:800px){.game-active .game-header p{display:none}.game-active .game-header h1{font-size:25px}.game-active .move-guide{padding-top:14px;padding-bottom:14px}}
 </style>

@@ -252,7 +252,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="page-container gomoku-page" :class="{ 'game-active': isPlaying }">
+  <div
+    class="page-container gomoku-page"
+    :class="{ 'game-active': game && game.status !== 'WAITING' }"
+  >
     <button class="back-btn" @click="router.push('/')">← 返回游戏大厅</button>
 
     <header class="game-header">
@@ -357,13 +360,16 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .gomoku-page { max-width: 980px; }
-.gomoku-page.game-active { height: calc(100dvh - 112px); padding-top: 0; padding-bottom: 0; display: flex; flex-direction: column; overflow: hidden; }
-.game-active .back-btn { margin-bottom: 6px; flex: 0 0 auto; }
-.game-active .game-header { margin-bottom: 10px; flex: 0 0 auto; }
-.game-active .match-card { margin-bottom: 6px; padding-top: 10px; padding-bottom: 10px; flex: 0 0 auto; }
-.game-active .board-wrap { flex: 1 1 auto; min-height: 0; padding: 4px 0; display: flex; align-items: center; justify-content: center; }
-.game-active .board { --cell: clamp(20px, calc((100dvh - 420px) / 15), 35px); }
-.game-active .actions { margin: 6px 0 0; flex: 0 0 auto; }
+.gomoku-page.game-active { --gomoku-cell: clamp(23px, calc((100dvh - 300px) / 15), 39px); height: calc(100dvh - 112px); padding-top: 0; padding-bottom: 0; display: grid; grid-template-areas: 'back back' 'header header' 'board match' 'actions .'; grid-template-columns: max-content minmax(220px, 270px); grid-template-rows: auto auto minmax(0, 1fr) auto; justify-content: center; column-gap: 12px; overflow: hidden; }
+.game-active .back-btn { grid-area: back; justify-self: start; margin-bottom: 6px; }
+.game-active .game-header { grid-area: header; margin-bottom: 10px; }
+.game-active .match-card { grid-area: match; align-self: center; height: calc(var(--gomoku-cell) * 15 + 28px); margin: 0; padding: 22px 18px; display: flex; flex-direction: column; justify-content: center; gap: 34px; }
+.game-active .match-card .player { width: 100%; }
+.game-active .match-card .white-player { justify-content: flex-start; text-align: left; }
+.game-active .match-center { width: 100%; padding: 18px 8px; border-top: 1px solid #eee7dd; border-bottom: 1px solid #eee7dd; }
+.game-active .board-wrap { grid-area: board; min-width: 0; min-height: 0; padding: 4px 0; display: flex; align-items: center; justify-content: center; }
+.game-active .board { --cell: var(--gomoku-cell); }
+.game-active .actions { grid-area: actions; margin: 6px 0 0; }
 .back-btn { border: 0; background: none; color: #8b5e34; cursor: pointer; margin-bottom: 18px; font-weight: 600; }
 .game-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 16px; }
 .game-header h1 { font-size: 30px; margin-bottom: 6px; }
@@ -416,6 +422,12 @@ onBeforeUnmount(() => {
 @keyframes winning-line { to { opacity: .66; box-shadow: 0 0 16px rgba(76,216,99,1); } }
 .board-stone { width: clamp(17px, calc(var(--cell) - 6px), 29px); height: clamp(17px, calc(var(--cell) - 6px), 29px); }
 .actions { display: flex; justify-content: center; align-items: center; gap: 20px; color: #999; margin: 12px 0; }
+@media (max-width: 820px) {
+  .gomoku-page.game-active { grid-template-areas: 'back' 'header' 'match' 'board' 'actions'; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr) auto; justify-content: stretch; column-gap: 0; }
+  .game-active .match-card { height: auto; min-height: 0; margin-bottom: 4px; padding: 8px 14px; display: grid; grid-template-columns: 1fr 1.25fr 1fr; gap: 12px; }
+  .game-active .match-card .white-player { justify-content: flex-end; text-align: right; }
+  .game-active .match-center { width: auto; padding: 0; border: 0; }
+}
 @media (max-width: 680px) {
   .lobby { grid-template-columns: 1fr; padding: 24px 16px; gap: 14px; }
   .divider { width: 100%; height: 1px; }
@@ -427,10 +439,15 @@ onBeforeUnmount(() => {
   .game-header { align-items: flex-start; }
   .game-header h1 { font-size: 25px; }
   .game-active .game-header p { display: none; }
-  .game-active .board { --cell: clamp(20px, calc((100dvh - 400px) / 15), 25px); }
+  .game-active .board { --cell: clamp(21px, calc((100dvh - 340px) / 15), 27px); }
 }
 @media (max-height: 800px) {
   .game-active .game-header p { display: none; }
   .game-active .game-header h1 { font-size: 25px; }
+  .game-active .back-btn { margin-bottom: 2px; }
+  .game-active .game-header { margin-bottom: 4px; }
+  .game-active .match-card { margin-bottom: 3px; padding-top: 7px; padding-bottom: 7px; }
+  .game-active .board-wrap { padding: 0; }
+  .game-active .actions { margin-top: 2px; }
 }
 </style>
