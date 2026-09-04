@@ -32,6 +32,7 @@ const petTypes = ref<PetTypeOption[]>([])
 const selectedType = ref('')
 const petName = ref('')
 const activeTab = ref<'shop' | 'bag'>('shop')
+const shopExpanded = ref(false)
 const exchangeQuantities = ref<Record<number, number>>({})
 const useSuccessVisible = ref(false)
 const useSuccessName = ref('')
@@ -584,8 +585,25 @@ onMounted(() => {
       </section>
       </div>
 
-      <section class="pet-workbench">
-        <el-tabs v-model="activeTab">
+      <section class="pet-workbench" :class="{ collapsed: !shopExpanded }">
+        <button
+          class="shop-collapse-trigger"
+          type="button"
+          :aria-expanded="shopExpanded"
+          @click="shopExpanded = !shopExpanded"
+        >
+          <span class="shop-trigger-icon">🎁</span>
+          <span class="shop-trigger-copy">
+            <strong>积分商店</strong>
+            <small>权益兑换与背包管理</small>
+          </span>
+          <span class="shop-trigger-arrow" :class="{ expanded: shopExpanded }"
+            >⌄</span
+          >
+        </button>
+
+        <div v-show="shopExpanded" class="pet-workbench-body">
+          <el-tabs v-model="activeTab">
           <el-tab-pane label="权益商店" name="shop">
             <h2>消耗型道具</h2>
             <div class="benefit-grid">
@@ -660,7 +678,8 @@ onMounted(() => {
             </div>
             <el-empty v-else description="背包还没有可用权益" />
           </el-tab-pane>
-        </el-tabs>
+          </el-tabs>
+        </div>
       </section>
       </div>
     </template>
@@ -723,6 +742,81 @@ onMounted(() => {
   max-height: calc(100dvh - 112px);
   overflow-y: auto;
   scrollbar-width: thin;
+}
+
+.pet-detail-layout .pet-workbench.collapsed {
+  min-height: 0;
+  max-height: none;
+  overflow: hidden;
+}
+
+.shop-collapse-trigger {
+  width: 100%;
+  min-height: 68px;
+  border: 0;
+  border-radius: 14px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #fff8eb, #fff 58%, #f2f8ff);
+  color: #3d414b;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.shop-collapse-trigger:hover {
+  background: linear-gradient(135deg, #fff2d8, #fff 58%, #eaf4ff);
+  box-shadow: 0 7px 20px rgba(80, 93, 120, 0.1);
+}
+
+.shop-trigger-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  background: #fff0d3;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+}
+
+.shop-trigger-copy {
+  min-width: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.shop-trigger-copy strong {
+  color: #409eff;
+  font-size: 17px;
+}
+
+.shop-trigger-copy small {
+  color: #9299a8;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.shop-trigger-arrow {
+  color: #7f8795;
+  font-size: 24px;
+  line-height: 1;
+  transform: rotate(0deg);
+  transition: transform 0.22s ease;
+}
+
+.shop-trigger-arrow.expanded {
+  transform: rotate(180deg);
+}
+
+.pet-workbench-body {
+  padding-top: 8px;
 }
 
 .pet-growth-column .pet-stage {
