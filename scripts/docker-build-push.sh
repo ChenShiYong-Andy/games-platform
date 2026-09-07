@@ -39,6 +39,28 @@ ensure_buildx() {
   fi
 }
 
+configure_openjdk_image() {
+  local local_platform
+  local requested_platform="${PLATFORM%%,*}"
+
+  local_platform="$(docker image inspect \
+    --format '{{.Os}}/{{.Architecture}}' \
+    "$OPENJDK_IMAGE" 2>/dev/null || true)"
+
+  if [[ "$local_platform" == "$requested_platform" ]]; then
+    echo "==> 使用本地 OpenJDK 基础镜像: ${OPENJDK_IMAGE} (${local_platform})"
+    admin_build_args+=(--pull=false)
+    return
+  fi
+
+  if [[ -n "$local_platform" ]]; then
+    echo "==> 本地 OpenJDK 镜像平台为 ${local_platform}，与目标平台 ${requested_platform} 不一致"
+  else
+    echo "==> 本地未找到 OpenJDK 基础镜像: ${OPENJDK_IMAGE}"
+  fi
+  echo "==> 构建时将从远程仓库拉取 OpenJDK 基础镜像"
+}
+
 registry_login() {
   local username="${REGISTRY_USERNAME:-}"
   local password="${REGISTRY_PASSWORD:-}"
@@ -70,6 +92,7 @@ admin_ui_build_args=(--platform "$PLATFORM" --build-arg "REGISTRY=${BUILD_REGIST
 
 echo "==> 目标平台: ${PLATFORM}"
 ensure_buildx
+configure_openjdk_image
 
 echo "==> Maven 打包后端"
 (cd admin && mvn -B package -DskipTests)

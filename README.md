@@ -43,7 +43,7 @@ cp .env.example .env
 | `ADMIN_IMAGE_NAME` | Admin 后端仓库名，默认 `games-platform-admin` |
 | `ADMIN_UI_IMAGE_NAME` | Admin UI 前端仓库名，默认 `games-platform-admin-ui` |
 | `IMAGE_TAG` | 镜像版本标签，如 `1.0.0` |
-| `OPENJDK_IMAGE` | 后端基础镜像（默认 `mcr.microsoft.com/openjdk/jdk:21-ubuntu`） |
+| `OPENJDK_IMAGE` | 后端基础镜像（默认 `mcr.microsoft.com/openjdk/jdk:21-ubuntu`）；本地存在相同平台镜像时优先使用本地缓存 |
 | `BUILD_REGISTRY` | 前端构建及 MySQL/Redis 拉取的基础镜像源 |
 | `OPENAI_BASE_URL` | OpenAI 协议兼容服务的通用地址，默认 `https://api.openai.com` |
 | `OPENAI_API_KEY` | OpenAI 协议兼容服务的通用密钥 |
