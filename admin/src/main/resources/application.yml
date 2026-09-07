@@ -1,0 +1,52 @@
+server:
+  port: 8080
+
+# OpenAI 兼容协议的通用连接配置。
+openai:
+  api-key: ${OPENAI_API_KEY:not-configured}
+  base-url: ${OPENAI_BASE_URL:https://api.deepseek.com}
+
+# 文本大模型配置；未单独设置时继承通用 OpenAI 配置。
+llm:
+  model: ${LLM_MODEL:deepseek-v4-flash}
+  api-key: ${LLM_API_KEY:${OPENAI_API_KEY:not-configured}}
+  base-url: ${LLM_BASE_URL:${OPENAI_BASE_URL:https://api.deepseek.com}}
+
+# 所有 Redis 顶层键共享的系统命名空间，避免多个应用使用同一实例时发生键冲突。
+system:
+  redis:
+    key-prefix: "${REDIS_KEY_PREFIX:games-platform}"
+
+spring:
+  ai:
+    openai:
+      base-url: ${llm.base-url}
+      api-key: ${llm.api-key}
+      chat:
+        options:
+          model: ${llm.model}
+  datasource:
+    url: jdbc:mysql://localhost:3306/games_platform?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: root123
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 3000ms
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: auto
+
+jwt:
+  secret: games-platform-jwt-secret-key-2024-must-be-at-least-256-bits-long
+  expiration: 86400000
+
+logging:
+  level:
+    com.gamesplatform: DEBUG

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 本地构建 backend / frontend 镜像并推送到镜像仓库
+# 本地构建 admin / admin-ui 镜像并推送到镜像仓库
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -14,15 +14,15 @@ fi
 
 IMAGE_REGISTRY="${IMAGE_REGISTRY:?请在 .env 中设置 IMAGE_REGISTRY（镜像仓库地址/命名空间）}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
-BACKEND_IMAGE_NAME="${BACKEND_IMAGE_NAME:-games-platform-backend}"
-FRONTEND_IMAGE_NAME="${FRONTEND_IMAGE_NAME:-games-platform-frontend}"
+ADMIN_IMAGE_NAME="${ADMIN_IMAGE_NAME:-${BACKEND_IMAGE_NAME:-games-platform-admin}}"
+ADMIN_UI_IMAGE_NAME="${ADMIN_UI_IMAGE_NAME:-${FRONTEND_IMAGE_NAME:-games-platform-admin-ui}}"
 BUILD_REGISTRY="${BUILD_REGISTRY:-docker.m.daocloud.io/library}"
 OPENJDK_IMAGE="${OPENJDK_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}"
 PLATFORM="${PLATFORM:-linux/amd64}"
 PUSH="${PUSH:-1}"
 
-BACKEND_IMAGE="${IMAGE_REGISTRY}/${BACKEND_IMAGE_NAME}:${IMAGE_TAG}"
-FRONTEND_IMAGE="${IMAGE_REGISTRY}/${FRONTEND_IMAGE_NAME}:${IMAGE_TAG}"
+ADMIN_IMAGE="${IMAGE_REGISTRY}/${ADMIN_IMAGE_NAME}:${IMAGE_TAG}"
+ADMIN_UI_IMAGE="${IMAGE_REGISTRY}/${ADMIN_UI_IMAGE_NAME}:${IMAGE_TAG}"
 REGISTRY_HOST="${IMAGE_REGISTRY%%/*}"
 
 ensure_buildx() {
@@ -65,28 +65,28 @@ registry_login() {
   fi
 }
 
-backend_build_args=(--platform "$PLATFORM" --build-arg "OPENJDK_IMAGE=${OPENJDK_IMAGE}")
-frontend_build_args=(--platform "$PLATFORM" --build-arg "REGISTRY=${BUILD_REGISTRY}")
+admin_build_args=(--platform "$PLATFORM" --build-arg "OPENJDK_IMAGE=${OPENJDK_IMAGE}")
+admin_ui_build_args=(--platform "$PLATFORM" --build-arg "REGISTRY=${BUILD_REGISTRY}")
 
 echo "==> 目标平台: ${PLATFORM}"
 ensure_buildx
 
 echo "==> Maven 打包后端"
-(cd backend && mvn -B package -DskipTests)
+(cd admin && mvn -B package -DskipTests)
 
-echo "==> 构建后端镜像: ${BACKEND_IMAGE}"
-docker build "${backend_build_args[@]}" -t "$BACKEND_IMAGE" ./backend
+echo "==> 构建 Admin 镜像: ${ADMIN_IMAGE}"
+docker build "${admin_build_args[@]}" -t "$ADMIN_IMAGE" ./admin
 
-echo "==> 构建前端镜像: ${FRONTEND_IMAGE}"
-docker build "${frontend_build_args[@]}" -t "$FRONTEND_IMAGE" ./frontend
+echo "==> 构建 Admin UI 镜像: ${ADMIN_UI_IMAGE}"
+docker build "${admin_ui_build_args[@]}" -t "$ADMIN_UI_IMAGE" ./admin-ui
 
 if [[ "$PUSH" == "1" ]]; then
   registry_login
-  echo "==> 推送后端: ${BACKEND_IMAGE}"
-  docker push "$BACKEND_IMAGE"
-  echo "==> 推送前端: ${FRONTEND_IMAGE}"
-  docker push "$FRONTEND_IMAGE"
-  echo "==> 完成。部署时在 docker/app 目录执行: docker compose pull && docker compose up -d --force-recreate"
+  echo "==> 推送 Admin: ${ADMIN_IMAGE}"
+  docker push "$ADMIN_IMAGE"
+  echo "==> 推送 Admin UI: ${ADMIN_UI_IMAGE}"
+  docker push "$ADMIN_UI_IMAGE"
+  echo "==> 完成。部署时在 docker/app 目录执行: ./deploy.sh"
 else
   echo "==> 构建完成（未推送，PUSH=0）"
 fi

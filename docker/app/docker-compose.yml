@@ -1,15 +1,14 @@
-# 应用：Backend + Frontend（可频繁重建，不影响数据库）
+# 应用：Admin + Admin UI（可频繁重建，不影响数据库）
 # 前置条件: 先启动 docker/database
-# 启动: cd docker/app && docker compose pull && docker compose up -d
-# 更新: cd docker/app && docker compose pull && docker compose up -d --force-recreate
+# 启动/更新: cd docker/app && ./deploy.sh
 
 services:
-  backend:
-    image: ${BACKEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/aliyun_andy/games-platform-backend:1.0.0}
-    container_name: games-platform-backend
+  admin:
+    image: ${ADMIN_IMAGE:-${BACKEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/aliyun_andy/games-platform-admin:1.0.0}}
+    container_name: games-platform-admin
     restart: unless-stopped
     ports:
-      - '${BACKEND_PORT:-8080}:8080'
+      - '${ADMIN_PORT:-${BACKEND_PORT:-8080}}:8080'
     environment:
       SPRING_PROFILES_ACTIVE: docker
       MYSQL_HOST: ${MYSQL_HOST:-games-platform-mysql}
@@ -20,20 +19,26 @@ services:
       REDIS_HOST: ${REDIS_HOST:-games-platform-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_KEY_PREFIX: ${REDIS_KEY_PREFIX:-games-platform}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.deepseek.com}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-not-configured}
+      LLM_BASE_URL: ${LLM_BASE_URL:-${OPENAI_BASE_URL:-https://api.deepseek.com}}
+      LLM_API_KEY: ${LLM_API_KEY:-${OPENAI_API_KEY:-not-configured}}
+      LLM_MODEL: ${LLM_MODEL:-deepseek-v4-flash}
     networks:
       - games-platform
 
-  frontend:
-    image: ${FRONTEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/aliyun_andy/games-platform-frontend:1.0.0}
-    container_name: games-platform-frontend
+  admin-ui:
+    image: ${ADMIN_UI_IMAGE:-${FRONTEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/aliyun_andy/games-platform-admin-ui:1.0.0}}
+    container_name: games-platform-admin-ui
     restart: unless-stopped
     ports:
-      - '${FRONTEND_PORT:-80}:80'
+      - '${ADMIN_UI_PORT:-${FRONTEND_PORT:-80}}:80'
     environment:
-      BACKEND_HOST: backend
+      BACKEND_HOST: admin
       BACKEND_PORT: 8080
     depends_on:
-      - backend
+      - admin
     networks:
       - games-platform
 

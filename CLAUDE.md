@@ -12,13 +12,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # 后端
-cd backend && mvn spring-boot:run          # 本地启动（需先启动 MySQL/Redis）
-cd backend && mvn package -DskipTests       # 打包 JAR
-cd backend && mvn test                      # 运行测试
+cd admin && mvn spring-boot:run          # 本地启动（需先启动 MySQL/Redis）
+cd admin && mvn package -DskipTests       # 打包 JAR
+cd admin && mvn test                      # 运行测试
 
 # 前端
-cd frontend && npm install && npm run dev   # 本地开发 (http://localhost:5173)
-cd frontend && npm run build                # 类型检查 + 生产构建
+cd admin-ui && npm install && npm run dev   # 本地开发 (http://localhost:5173)
+cd admin-ui && npm run build                # 类型检查 + 生产构建
 
 # 基础设施（本地开发用）
 cd docker/database && docker compose up -d  # 启动 MySQL + Redis
@@ -34,20 +34,25 @@ PUSH=0 ./scripts/docker-build-push.sh       # 仅构建不推送
 ### 后端分层（按功能模块垂直划分）
 
 ```
-backend/src/main/java/com/gamesplatform/
+admin/src/main/java/com/gamesplatform/
 ├── config/          # SecurityConfig, JacksonConfig, PasswordConfig
-├── auth/            # JwtTokenProvider, JwtAuthenticationFilter
 ├── common/          # ApiResponse<T>, BusinessException, GlobalExceptionHandler
-├── user/            # 用户注册/登录/资料 (AuthController, UserService, UserMapper)
-├── game/
+├── games/           # 全部游戏统一入口
+│   ├── dashboard/   # 游戏大厅及今日游戏统计
 │   ├── engine/      # GameEngine 接口 + SudokuGameEngine 实现 + SudokuGenerator
-│   └── domain/      # GameSession, GameResult, GameSubmitCommand (通用领域对象)
-├── sudoku/          # 数独 HTTP 层 (SudokuController, SudokuService, SudokuGameMapper)
-├── gomoku/          # 五子棋好友房间、人机对局、规则与结算
-├── chess/           # 中国象棋好友房间、人机对局、规则与结算
-├── pet/             # 宠物养成与积分兑换 (PetController, PetService, 权益/背包/订单 Mapper)
-├── points/          # 积分流水 (PointsController, PointsService, PointTransactionMapper)
-└── ranking/         # 排行榜 (RankingController, RankingService)
+│   ├── domain/      # GameSession, GameResult, GameSubmitCommand (通用领域对象)
+│   ├── sudoku/      # 数独 HTTP 层、业务服务与数据访问
+│   ├── gomoku/      # 五子棋好友房间、人机对局、规则与结算
+│   └── chess/       # 中国象棋好友房间、人机对局、规则与结算
+├── school/          # 校园学习与成长能力聚合
+│   ├── english/     # 每日英语配置、生成、缓存及接口
+│   ├── pet/         # 宠物养成与积分兑换 (PetController, PetService, 权益/背包/订单 Mapper)
+│   └── ranking/     # 排行榜 (RankingController, RankingService)
+└── system/          # 系统基础能力聚合
+    ├── admin/       # 全局管理后台、游戏配置与积分调整
+    ├── auth/        # JwtTokenProvider, JwtAuthenticationFilter
+    ├── points/      # 积分流水 (PointsController, PointsService, PointTransactionMapper)
+    └── user/        # 用户注册/登录/资料 (AuthController, UserService, UserMapper)
 ```
 
 **核心模式**: `GameEngine` 接口定义游戏的创建、提交、落子校验、提示四个行为。`SudokuGameEngine` 是当前唯一实现类，通过 `@Qualifier` 注入到 `SudokuService`。新增游戏只需实现该接口 + 对应的 controller/service/mapper 切片。
@@ -77,7 +82,7 @@ backend/src/main/java/com/gamesplatform/
 
 ### 持久化与 Redis
 
-- MySQL: 用户、游戏记录、积分流水、宠物权益。数据库结构由 `backend/src/main/resources/db/migration/` 下的 Flyway 脚本管理。
+- MySQL: 用户、游戏记录、积分流水、宠物权益。数据库结构由 `admin/src/main/resources/db/migration/` 下的 Flyway 脚本管理。
 - Redis: `spring-boot-starter-data-redis` 已引入，当前主要用于缓存和会话管理。
 
 ### 部署架构

@@ -1,10 +1,11 @@
 .env
 .idea/
 *.iml
-backend/target/
-backend/application/
-backend/dependencies/
-backend/spring-boot-loader/
-frontend/node_modules/
-frontend/dist/
+admin/target/
+admin/application/
+admin/dependencies/
+admin/spring-boot-loader/
+admin-ui/node_modules/
+admin-ui/dist/
+admin-ui/.vite/
 .DS_Store

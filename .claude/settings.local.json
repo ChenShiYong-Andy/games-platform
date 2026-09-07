@@ -9,7 +9,9 @@
       "Bash(docker version *)",
       "Bash(mvn spring-boot:run)",
       "Bash(javac -cp /Users/andy/.m2/repository/com/mysql/mysql-connector-j/8.3.0/mysql-connector-j-8.3.0.jar DbConnTest.java)",
-      "Bash(java -cp .:/Users/andy/.m2/repository/com/mysql/mysql-connector-j/8.3.0/mysql-connector-j-8.3.0.jar DbConnTest)"
+      "Bash(java -cp .:/Users/andy/.m2/repository/com/mysql/mysql-connector-j/8.3.0/mysql-connector-j-8.3.0.jar DbConnTest)",
+      "Bash(grep -E \"node_modules|/target/|/dist/|\\\\.env$\")",
+      "Bash(git check-ignore *)"
     ]
   }
 }
