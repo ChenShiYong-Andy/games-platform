@@ -1,89 +1,50 @@
 package com.gamesplatform.system.admin.service;
 
-import com.gamesplatform.system.admin.dto.AdminPortalPasswordRequest;
-import com.gamesplatform.system.admin.dto.AdminPortalStatusResponse;
-import com.gamesplatform.system.admin.entity.AdminPortalConfig;
-import com.gamesplatform.system.admin.mapper.AdminPortalConfigMapper;
-import com.gamesplatform.common.BusinessException;
 import com.gamesplatform.school.english.dto.DailyEnglishConfigRequest;
 import com.gamesplatform.school.english.dto.DailyEnglishConfigResponse;
-import com.gamesplatform.school.english.entity.DailyEnglishConfig;
-import com.gamesplatform.school.english.mapper.DailyEnglishConfigMapper;
-import com.gamesplatform.school.english.mapper.DailyEnglishPracticeMapper;
-import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
+import com.gamesplatform.system.admin.dto.AdminPortalPasswordRequest;
+import com.gamesplatform.system.admin.dto.AdminPortalStatusResponse;
 
 /**
- * 独立管理后台服务。
+ * 独立管理后台业务服务。
  */
-@Service
-@RequiredArgsConstructor
-public class AdminPortalService {
+public interface AdminPortalService {
 
-    private static final long CONFIG_ID = 1L;
+    /**
+     * 查询管理后台初始化状态。
+     *
+     * @return 管理后台状态。
+     */
+    AdminPortalStatusResponse getStatus();
 
-    private final AdminPortalConfigMapper portalConfigMapper;
-    private final DailyEnglishConfigMapper englishConfigMapper;
-    private final DailyEnglishPracticeMapper practiceMapper;
-    private final PasswordEncoder passwordEncoder;
+    /**
+     * 首次设置管理后台密码。
+     *
+     * @param request 密码设置请求。
+     * @return 更新后的管理后台状态。
+     */
+    AdminPortalStatusResponse setPassword(AdminPortalPasswordRequest request);
 
-    public AdminPortalStatusResponse getStatus() {
-        return new AdminPortalStatusResponse(portalConfigMapper.selectById(CONFIG_ID) != null);
-    }
+    /**
+     * 验证管理后台密码。
+     *
+     * @param password 待验证密码。
+     */
+    void verifyPassword(String password);
 
-    @Transactional
-    public AdminPortalStatusResponse setPassword(AdminPortalPasswordRequest request) {
-        if (portalConfigMapper.selectById(CONFIG_ID) != null) {
-            throw new BusinessException("管理后台密码已设置");
-        }
-        AdminPortalConfig config = new AdminPortalConfig();
-        config.setId(CONFIG_ID);
-        config.setPasswordHash(passwordEncoder.encode(request.getPassword().trim()));
-        config.setCreatedAt(LocalDateTime.now());
-        config.setUpdatedAt(LocalDateTime.now());
-        portalConfigMapper.insert(config);
-        return new AdminPortalStatusResponse(true);
-    }
+    /**
+     * 查询每日英语配置。
+     *
+     * @param request 管理后台密码请求。
+     * @return 每日英语配置。
+     */
+    DailyEnglishConfigResponse getEnglishConfig(AdminPortalPasswordRequest request);
 
-    public void verifyPassword(String password) {
-        AdminPortalConfig config = portalConfigMapper.selectById(CONFIG_ID);
-        if (config == null) {
-            throw new BusinessException("请先设置管理后台密码");
-        }
-        if (password == null || !passwordEncoder.matches(password, config.getPasswordHash())) {
-            throw new BusinessException("管理后台密码错误");
-        }
-    }
-
-    public DailyEnglishConfigResponse getEnglishConfig(AdminPortalPasswordRequest request) {
-        verifyPassword(request.getPassword());
-        DailyEnglishConfig config = requireEnglishConfig();
-        return new DailyEnglishConfigResponse(config.getGradeLevel(), config.getSkillMarkdown());
-    }
-
-    @Transactional
-    @CacheEvict(cacheNames = "daily-english:practice", allEntries = true)
-    public DailyEnglishConfigResponse updateEnglishConfig(DailyEnglishConfigRequest request) {
-        verifyPassword(request.getAdminPassword());
-        DailyEnglishConfig config = requireEnglishConfig();
-        config.setGradeLevel(request.getGradeLevel());
-        config.setSkillMarkdown(request.getSkillMarkdown() == null ? "" : request.getSkillMarkdown().trim());
-        config.setUpdatedAt(LocalDateTime.now());
-        englishConfigMapper.updateById(config);
-        practiceMapper.delete(null);
-        return new DailyEnglishConfigResponse(config.getGradeLevel(), config.getSkillMarkdown());
-    }
-
-    private DailyEnglishConfig requireEnglishConfig() {
-        DailyEnglishConfig config = englishConfigMapper.selectById(CONFIG_ID);
-        if (config == null) {
-            throw new BusinessException("每日英语配置不存在，请执行数据库迁移");
-        }
-        return config;
-    }
+    /**
+     * 更新每日英语配置。
+     *
+     * @param request 每日英语配置更新请求。
+     * @return 更新后的每日英语配置。
+     */
+    DailyEnglishConfigResponse updateEnglishConfig(DailyEnglishConfigRequest request);
 }

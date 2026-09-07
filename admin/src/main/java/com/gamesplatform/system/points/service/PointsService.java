@@ -1,172 +1,56 @@
 package com.gamesplatform.system.points.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.gamesplatform.system.points.dto.PointTransactionResponse;
-import com.gamesplatform.system.points.entity.PointTransaction;
-import com.gamesplatform.system.points.mapper.PointTransactionMapper;
-import com.gamesplatform.school.ranking.service.RankingService;
-import com.gamesplatform.common.BusinessException;
-import com.gamesplatform.system.user.entity.User;
-import com.gamesplatform.system.user.mapper.UserMapper;
-import com.gamesplatform.system.user.service.UserService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
- * 积分服务。
+ * 积分业务服务。
  */
-@Service
-@RequiredArgsConstructor
-public class PointsService {
+public interface PointsService {
 
     /**
-     * 积分流水数据访问组件。
-     */
-    private final PointTransactionMapper pointTransactionMapper;
-    /**
-     * 用户数据访问组件。
-     */
-    private final UserMapper userMapper;
-    /**
-     * 用户服务。
-     */
-    private final UserService userService;
-    /**
-     * 排行榜服务。
-     */
-    private final RankingService rankingService;
-
-    /**
-     * 日期时间格式化器。
-     */
-    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-
-    /**
-     * 发放积分。
+     * 为用户发放积分。
      *
      * @param userId 用户 ID。
-     * @param amount 积分变动值。
-     * @param type 类型。
+     * @param amount 发放积分。
+     * @param type 积分类型。
      * @param sourceId 来源业务 ID。
-     * @param description 描述。
-     * @return 处理结果。
+     * @param description 积分描述。
+     * @return 变动后的总积分。
      */
-    @Transactional
-    public int awardPoints(Long userId, int amount, String type, Long sourceId, String description) {
-        return changePoints(userId, amount, type, sourceId, description);
-    }
+    int awardPoints(Long userId, int amount, String type, Long sourceId, String description);
 
     /**
-     * 扣除积分。
+     * 在用户现有积分范围内扣除积分。
      *
      * @param userId 用户 ID。
-     * @param requestedAmount 请求扣除的积分值。
-     * @param type 类型。
+     * @param requestedAmount 请求扣除的积分。
+     * @param type 积分类型。
      * @param sourceId 来源业务 ID。
-     * @param description 描述。
-     * @return 处理结果。
+     * @param description 积分描述。
+     * @return 变动后的总积分。
      */
-    @Transactional
-    public int deductPoints(Long userId, int requestedAmount, String type, Long sourceId, String description) {
-        if (requestedAmount <= 0) {
-            return userService.getUserById(userId).getTotalPoints();
-        }
-        User user = userMapper.selectOne(
-                new LambdaQueryWrapper<User>()
-                        .eq(User::getId, userId)
-                        .last("FOR UPDATE"));
-        int deduction = Math.min(user.getTotalPoints(), requestedAmount);
-        if (deduction == 0) {
-            return 0;
-        }
-        return changePoints(user, -deduction, type, sourceId, description);
-    }
+    int deductPoints(Long userId, int requestedAmount, String type, Long sourceId, String description);
 
     /**
-     * 严格扣除积分，积分不足时直接失败。
+     * 严格扣除积分，积分不足时拒绝操作。
      *
      * @param userId 用户 ID。
      * @param amount 扣除积分。
-     * @param type 类型。
+     * @param type 积分类型。
      * @param sourceId 来源业务 ID。
-     * @param description 描述。
-     * @return 扣除后的可用积分。
+     * @param description 积分描述。
+     * @return 变动后的总积分。
      */
-    @Transactional
-    public int consumePoints(Long userId, int amount, String type, Long sourceId, String description) {
-        if (amount <= 0) {
-            return userService.getUserById(userId).getTotalPoints();
-        }
-        User user = userMapper.selectOne(
-                new LambdaQueryWrapper<User>()
-                        .eq(User::getId, userId)
-                        .last("FOR UPDATE"));
-        if (user == null) {
-            throw new BusinessException("用户不存在");
-        }
-        if (user.getTotalPoints() == null || user.getTotalPoints() < amount) {
-            throw new BusinessException(40003, "用户积分不足");
-        }
-        return changePoints(user, -amount, type, sourceId, description);
-    }
-
-    private int changePoints(Long userId, int amount, String type, Long sourceId, String description) {
-        User user = userMapper.selectOne(
-                new LambdaQueryWrapper<User>()
-                        .eq(User::getId, userId)
-                        .last("FOR UPDATE"));
-        if (user == null) {
-            throw new BusinessException("用户不存在");
-        }
-        return changePoints(user, amount, type, sourceId, description);
-    }
-
-    private int changePoints(User user, int amount, String type, Long sourceId, String description) {
-        PointTransaction tx = new PointTransaction();
-        tx.setUserId(user.getId());
-        tx.setAmount(amount);
-        tx.setType(type);
-        tx.setSourceId(sourceId);
-        tx.setDescription(description);
-        tx.setCreatedAt(LocalDateTime.now());
-        pointTransactionMapper.insert(tx);
-
-        int newTotal = Math.max(0, user.getTotalPoints() + amount);
-        user.setTotalPoints(newTotal);
-        user.setLevel(userService.calculateLevel(newTotal));
-        user.setUpdatedAt(LocalDateTime.now());
-        userMapper.updateById(user);
-
-        rankingService.updateTotalPoints(user.getId(), newTotal);
-        rankingService.updateWeeklyPoints(user.getId(), amount);
-
-        return newTotal;
-    }
+    int consumePoints(Long userId, int amount, String type, Long sourceId, String description);
 
     /**
-     * 查询积分流水。
+     * 查询用户最近的积分流水。
      *
      * @param userId 用户 ID。
-     * @param limit 查询数量上限。
-     * @return 处理结果。
+     * @param limit 返回数量上限。
+     * @return 积分流水列表。
      */
-    public List<PointTransactionResponse> getTransactions(Long userId, int limit) {
-        List<PointTransaction> list = pointTransactionMapper.selectList(
-                new LambdaQueryWrapper<PointTransaction>()
-                        .eq(PointTransaction::getUserId, userId)
-                        .orderByDesc(PointTransaction::getCreatedAt)
-                        .last("LIMIT " + limit));
-        return list.stream().map(tx -> PointTransactionResponse.builder()
-                .id(tx.getId())
-                .amount(tx.getAmount())
-                .type(tx.getType())
-                .description(tx.getDescription())
-                .createdAt(tx.getCreatedAt().format(FORMATTER))
-                .build()).toList();
-    }
+    List<PointTransactionResponse> getTransactions(Long userId, int limit);
 }

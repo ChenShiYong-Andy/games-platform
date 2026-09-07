@@ -1,7 +1,5 @@
 package com.gamesplatform.games.engine;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -15,7 +13,6 @@ public class SudokuGenerator {
     /**
      * 随机数生成器。
      */
-    @Schema(description = "随机数生成器")
     private static final Random RANDOM = new Random();
 
 

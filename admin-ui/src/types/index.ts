@@ -263,6 +263,17 @@ export interface DailyEnglishPractice {
   items: DailyEnglishItem[]
 }
 
+export interface DailyEnglishTaskStatus {
+  completed: boolean
+  rewardPoints: number
+}
+
+export interface DailyEnglishTaskCompletion {
+  newlyCompleted: boolean
+  pointsEarned: number
+  totalPoints: number
+}
+
 export interface DailyEnglishConfig {
   gradeLevel: number
   skillMarkdown: string

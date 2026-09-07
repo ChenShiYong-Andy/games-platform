@@ -115,10 +115,10 @@ public class SudokuGameEngine implements GameEngine {
      */
     private int calculatePointsEarned(int gridSize) {
         return switch (gridSize) {
-            case 4 -> 1;
-            case 6 -> 3;
-            case 9 -> 5;
-            default -> 1;
+            case 4 -> 3;
+            case 6 -> 8;
+            case 9 -> 20;
+            default -> 3;
         };
     }
 

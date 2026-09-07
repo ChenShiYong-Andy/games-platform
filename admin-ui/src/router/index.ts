@@ -25,6 +25,7 @@ const router = createRouter({
         { path: 'games/sudoku', name: 'Sudoku', component: () => import('@/views/games/SudokuView.vue') },
         { path: 'games/sudoku/play', name: 'SudokuPlay', component: () => import('@/views/games/SudokuPlayView.vue') },
         { path: 'games/pet', name: 'Pet', component: () => import('@/views/games/PetView.vue') },
+        { path: 'daily-english', name: 'DailyEnglish', component: () => import('@/views/DailyEnglishView.vue') },
         { path: 'games/gomoku', name: 'Gomoku', component: () => import('@/views/games/GomokuView.vue') },
         { path: 'games/chess', name: 'ChineseChess', component: () => import('@/views/games/ChineseChessView.vue') },
         { path: 'profile', name: 'Profile', component: () => import('@/views/ProfileView.vue') },

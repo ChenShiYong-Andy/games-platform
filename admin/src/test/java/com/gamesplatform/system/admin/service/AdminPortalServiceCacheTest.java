@@ -1,6 +1,7 @@
 package com.gamesplatform.system.admin.service;
 
 import com.gamesplatform.school.english.dto.DailyEnglishConfigRequest;
+import com.gamesplatform.system.admin.service.impl.AdminPortalServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.springframework.cache.annotation.CacheEvict;
 
@@ -21,7 +22,7 @@ class AdminPortalServiceCacheTest {
      */
     @Test
     void updateEnglishConfigEvictsDailyEnglishCache() throws NoSuchMethodException {
-        Method method = AdminPortalService.class
+        Method method = AdminPortalServiceImpl.class
                 .getMethod("updateEnglishConfig", DailyEnglishConfigRequest.class);
 
         CacheEvict cacheEvict = method.getAnnotation(CacheEvict.class);

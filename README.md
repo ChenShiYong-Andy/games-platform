@@ -231,7 +231,7 @@ games-platform/
 
 ## 架构设计
 
-后端按业务模块垂直拆分，每个模块内部根据需要包含 `controller`、`service`、`dto`、`entity`、`mapper` 和 `domain`。所有 HTTP 接口统一返回 `ApiResponse<T>`，受保护接口通过 JWT 获取当前用户 ID。
+后端按业务模块垂直拆分，每个模块内部根据需要包含 `controller`、`service`、`dto`、`entity`、`mapper` 和 `domain`。业务服务统一采用 `service/XxxService` 接口与 `service/impl/XxxServiceImpl` 实现分离，调用方仅依赖服务接口。所有 HTTP 接口统一返回 `ApiResponse<T>`，受保护接口通过 JWT 获取当前用户 ID。
 
 数独采用 `GameEngine` 抽象组织创建、提交和规则校验：
 

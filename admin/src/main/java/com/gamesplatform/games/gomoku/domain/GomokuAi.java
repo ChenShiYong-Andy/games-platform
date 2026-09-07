@@ -1,13 +1,10 @@
 package com.gamesplatform.games.gomoku.domain;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-
 /** 五子棋人机对手，优先取胜、拦截对手，再按棋形与中心位置选点。 */
 public final class GomokuAi {
     /**
      * 五子棋连线检测方向。
      */
-    @Schema(description = "五子棋连线检测方向")
     private static final int[][] DIRECTIONS = {{1, 0}, {0, 1}, {1, 1}, {1, -1}};
 
 

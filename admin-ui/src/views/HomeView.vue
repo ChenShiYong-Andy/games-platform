@@ -7,8 +7,8 @@ import { getData } from '@/api'
 import type { PointTransaction, TodayGameStats } from '@/types'
 
 const authStore = useAuthStore()
-const games = gameApps.filter((game) => game.id !== 'pet')
-const petApps = gameApps.filter((game) => game.id === 'pet')
+const learningApps = gameApps.filter((app) => ['pet', 'english'].includes(app.id))
+const games = gameApps.filter((app) => !['pet', 'english'].includes(app.id))
 const transactions = ref<PointTransaction[]>([])
 const transactionsLoading = ref(false)
 const todayGameStats = ref<TodayGameStats>({ sudoku: 0, gomoku: 0, chess: 0 })
@@ -52,13 +52,13 @@ async function loadTransactions() {
     <div class="home-dashboard">
       <main class="home-main">
         <div class="hall-layout">
-          <section class="hall-section pet-section">
+          <section class="hall-section learning-section">
             <div class="section-heading">
               <div>
-                <h2 class="section-title">宠物养成</h2>
+                <h2 class="section-title">成长与学习</h2>
               </div>
             </div>
-            <GameAppGrid :games="petApps" />
+            <GameAppGrid :games="learningApps" />
           </section>
 
           <section class="hall-section games-section">
@@ -177,7 +177,7 @@ async function loadTransactions() {
   box-shadow: 0 4px 20px rgba(70, 76, 120, 0.07);
 }
 
-.pet-section {
+.learning-section {
   background: linear-gradient(160deg, rgba(255, 250, 241, 0.94), rgba(255, 255, 255, 0.78));
 }
 

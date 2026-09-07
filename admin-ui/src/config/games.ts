@@ -31,6 +31,16 @@ export const gameApps: GameApp[] = [
     enabled: true
   },
   {
+    id: 'english',
+    name: '每日英语',
+    description: '单词与短句口语跟读',
+    icon: '🔤',
+    route: '/daily-english',
+    bg: 'linear-gradient(145deg, #4facfe 0%, #7367f0 100%)',
+    shadow: '0 8px 24px rgba(79, 172, 254, 0.32)',
+    enabled: true
+  },
+  {
     id: 'gomoku',
     name: '五子棋',
     description: '邀请好友，双人在线对弈',

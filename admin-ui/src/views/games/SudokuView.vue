@@ -31,18 +31,39 @@ function startGame(difficulty: string) {
 }
 
 .back-btn {
-  border: none;
-  background: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.85);
   color: #667eea;
   font-size: 14px;
   cursor: pointer;
-  padding: 0;
+  padding: 8px 14px;
   margin-bottom: 16px;
-  font-weight: 500;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease,
+    box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .back-btn:hover {
-  text-decoration: underline;
+  color: #fff;
+  border-color: #667eea;
+  background: #667eea;
+  box-shadow: 0 7px 16px rgba(102, 126, 234, 0.25);
+  transform: translateY(-1px);
+}
+
+.back-btn:active {
+  transform: translateY(0);
+}
+
+.back-btn:focus-visible {
+  outline: 3px solid rgba(102, 126, 234, 0.22);
+  outline-offset: 2px;
 }
 
 .title-row {

@@ -1,13 +1,10 @@
 package com.gamesplatform.games.chess.domain;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-
 /** 中国象棋人机对手，遍历合法走法并优先吃高价值棋子和将军。 */
 public final class ChineseChessAi {
     /**
      * 各类棋子的评估分值。
      */
-    @Schema(description = "各类棋子的评估分值")
     private static final int[] PIECE_VALUES = {0, 500, 300, 250, 250, 100_000, 450, 100};
 
 

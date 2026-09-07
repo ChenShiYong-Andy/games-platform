@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getData, postData } from '@/api'
 import { useAuthStore } from '@/stores/auth'
@@ -8,8 +8,6 @@ import PetInventoryItemCard from '@/components/PetInventoryItemCard.vue'
 import type {
   PetBenefitItem,
   PetColorOption,
-  DailyEnglishItem,
-  DailyEnglishPractice,
   PetExchangeResponse,
   PetGrowthStage,
   PetHomeResponse,
@@ -38,35 +36,10 @@ const selectedType = ref('')
 const petName = ref('')
 const activeTab = ref<'shop' | 'bag'>('shop')
 const shopExpanded = ref(false)
-const englishExpanded = ref(false)
-const englishLoading = ref(false)
-const englishPractice = ref<DailyEnglishPractice | null>(null)
-const listeningIndex = ref<number | null>(null)
-const pronunciationResults = ref<Record<number, { correct: boolean; transcript: string }>>({})
 const exchangeQuantities = ref<Record<number, number>>({})
 const useSuccessVisible = ref(false)
 const useSuccessName = ref('')
 const useSuccessGif = ref('')
-
-interface SpeechRecognitionEventLike {
-  results: { [index: number]: { [index: number]: { transcript: string } } }
-}
-
-interface SpeechRecognitionLike {
-  lang: string
-  continuous: boolean
-  interimResults: boolean
-  maxAlternatives: number
-  start: () => void
-  stop: () => void
-  onstart: (() => void) | null
-  onresult: ((event: SpeechRecognitionEventLike) => void) | null
-  onerror: (() => void) | null
-  onend: (() => void) | null
-}
-
-type SpeechRecognitionConstructor = new () => SpeechRecognitionLike
-let activeRecognition: SpeechRecognitionLike | null = null
 
 const realAnimalGifs: Record<string, string[]> = {
   CAT: [
@@ -441,165 +414,8 @@ async function growPet() {
   }
 }
 
-async function toggleDailyEnglish() {
-  englishExpanded.value = !englishExpanded.value
-  if (englishExpanded.value && !englishPractice.value && !englishLoading.value) {
-    await loadDailyEnglish()
-  }
-}
-
-async function loadDailyEnglish() {
-  englishLoading.value = true
-  try {
-    englishPractice.value = await getData<DailyEnglishPractice>(
-      '/daily-english/today',
-      undefined,
-      60000
-    )
-  } catch (e: unknown) {
-    ElMessage.error(e instanceof Error ? e.message : '每日英语生成失败')
-  } finally {
-    englishLoading.value = false
-  }
-}
-
-function selectEnglishFemaleVoice(voices: SpeechSynthesisVoice[]) {
-  const femaleVoicePattern = /female|samantha|victoria|karen|moira|tessa|ava|zira|susan|hazel|aria|jenny|joanna|salli|kendra|kimberly|ivy|amy|emma|nicole|fiona|serena|kate|olivia|natasha|sonia|libby|michelle|allison|nicky/i
-  const maleVoicePattern = /male|alex|daniel|fred|tom|david|mark|george|james|ryan|guy/i
-  const qualityPattern = /natural|neural|premium|enhanced|online/i
-  const englishVoices = voices.filter((voice) => voice.lang.toLowerCase().startsWith('en'))
-  const rankVoice = (voice: SpeechSynthesisVoice) => {
-    const identity = `${voice.name} ${voice.voiceURI}`
-    let score = 0
-    if (femaleVoicePattern.test(identity)) score += 200
-    if (/google us english/i.test(identity)) score += 160
-    if (qualityPattern.test(identity)) score += 80
-    if (voice.lang.toLowerCase() === 'en-us') score += 35
-    if (voice.default) score += 5
-    return score
-  }
-  const femaleVoices = englishVoices.filter((voice) => {
-    const identity = `${voice.name} ${voice.voiceURI}`
-    return femaleVoicePattern.test(identity) || /google us english/i.test(identity)
-  })
-  const candidates = femaleVoices.length
-    ? femaleVoices
-    : englishVoices.filter(
-        (voice) => !maleVoicePattern.test(`${voice.name} ${voice.voiceURI}`)
-      )
-  return [...candidates].sort((left, right) => rankVoice(right) - rankVoice(left))[0] || null
-}
-
-async function getSpeechVoices() {
-  const currentVoices = window.speechSynthesis.getVoices()
-  if (currentVoices.length > 0) return currentVoices
-  return new Promise<SpeechSynthesisVoice[]>((resolve) => {
-    const finish = () => resolve(window.speechSynthesis.getVoices())
-    window.speechSynthesis.addEventListener('voiceschanged', finish, { once: true })
-    window.setTimeout(finish, 600)
-  })
-}
-
-async function playEnglish(text: string) {
-  if (!('speechSynthesis' in window)) {
-    ElMessage.warning('当前设备不支持语音播放')
-    return
-  }
-  window.speechSynthesis.cancel()
-  const voices = await getSpeechVoices()
-  const utterance = new SpeechSynthesisUtterance(text)
-  utterance.lang = 'en-US'
-  utterance.voice = selectEnglishFemaleVoice(voices)
-  utterance.rate = 0.86
-  utterance.pitch = 1
-  window.speechSynthesis.speak(utterance)
-}
-
-function startReading(item: DailyEnglishItem, index: number) {
-  const speechWindow = window as Window & {
-    SpeechRecognition?: SpeechRecognitionConstructor
-    webkitSpeechRecognition?: SpeechRecognitionConstructor
-  }
-  const Recognition =
-    speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition
-  if (!Recognition) {
-    ElMessage.warning('当前浏览器不支持语音识别，请使用最新版 Chrome 或 Edge')
-    return
-  }
-  activeRecognition?.stop()
-  const recognition = new Recognition()
-  activeRecognition = recognition
-  recognition.lang = 'en-US'
-  recognition.continuous = false
-  recognition.interimResults = false
-  recognition.maxAlternatives = 1
-  recognition.onstart = () => {
-    listeningIndex.value = index
-  }
-  recognition.onresult = event => {
-    const transcript = event.results[0]?.[0]?.transcript || ''
-    const correct = pronunciationMatches(item.text, transcript)
-    pronunciationResults.value[index] = { correct, transcript }
-    if (correct) {
-      ElMessage.success('读得很棒！')
-    } else {
-      ElMessage.warning(`识别为：${transcript || '未识别到内容'}，请再试一次`)
-    }
-  }
-  recognition.onerror = () => {
-    ElMessage.error('录音或语音识别失败，请检查麦克风权限')
-  }
-  recognition.onend = () => {
-    listeningIndex.value = null
-    if (activeRecognition === recognition) activeRecognition = null
-  }
-  recognition.start()
-}
-
-function pronunciationMatches(expected: string, actual: string) {
-  const target = normalizeSpeech(expected)
-  const spoken = normalizeSpeech(actual)
-  if (!target || !spoken) return false
-  if (target === spoken) return true
-  const longest = Math.max(target.length, spoken.length)
-  const similarity = 1 - levenshteinDistance(target, spoken) / longest
-  return similarity >= (target.includes(' ') ? 0.78 : 0.82)
-}
-
-function normalizeSpeech(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[’']/g, '')
-    .replace(/[^a-z\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-function levenshteinDistance(left: string, right: string) {
-  const previous = Array.from({ length: right.length + 1 }, (_, index) => index)
-  for (let i = 1; i <= left.length; i++) {
-    let diagonal = previous[0]
-    previous[0] = i
-    for (let j = 1; j <= right.length; j++) {
-      const above = previous[j]
-      previous[j] = Math.min(
-        previous[j] + 1,
-        previous[j - 1] + 1,
-        diagonal + (left[i - 1] === right[j - 1] ? 0 : 1)
-      )
-      diagonal = above
-    }
-  }
-  return previous[right.length]
-}
-
 onMounted(() => {
   void loadPage()
-})
-
-onBeforeUnmount(() => {
-  activeRecognition?.stop()
-  window.speechSynthesis?.cancel()
 })
 </script>
 
@@ -733,7 +549,6 @@ onBeforeUnmount(() => {
               <div class="charge-meta">
                 <span>Lv.{{ petInfo?.level }} · {{ petInfo?.exp || 0 }}/100</span>
                 <strong>{{ petInfo?.stageName }}</strong>
-                <span>{{ petMood }}</span>
               </div>
             </div>
           </div>
@@ -817,69 +632,6 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="pet-side-column">
-      <section class="daily-english card" :class="{ expanded: englishExpanded }">
-        <button
-          class="feature-collapse-trigger english-trigger"
-          type="button"
-          :aria-expanded="englishExpanded"
-          @click="toggleDailyEnglish"
-        >
-          <span class="feature-trigger-icon">🔤</span>
-          <span class="feature-trigger-copy">
-            <strong>每日英语</strong>
-            <small>单词与短句口语跟读</small>
-          </span>
-          <span class="feature-trigger-arrow" :class="{ expanded: englishExpanded }">⌄</span>
-        </button>
-
-        <div v-show="englishExpanded" v-loading="englishLoading" class="daily-english-body">
-          <template v-if="englishPractice">
-            <div class="english-heading">
-              <div>
-                <small>{{ englishPractice.gradeLabel }}</small>
-                <h2>{{ englishPractice.title }}</h2>
-              </div>
-              <span>{{ englishPractice.date }}</span>
-            </div>
-            <div class="english-card-grid">
-              <article
-                v-for="(item, index) in englishPractice.items"
-                :key="`${item.type}-${item.text}`"
-                class="english-card"
-                :class="item.type.toLowerCase()"
-              >
-                <span class="english-kind">{{ item.type === 'WORD' ? '单词' : '短句' }}</span>
-                <h3>{{ item.text }}</h3>
-                <p v-if="item.phonetic" class="phonetic">{{ item.phonetic }}</p>
-                <p class="translation">{{ item.translation }}</p>
-                <small v-if="item.tip" class="pronunciation-tip">{{ item.tip }}</small>
-                <div class="english-actions">
-                  <button type="button" @click="playEnglish(item.text)">🔊 播放</button>
-                  <button
-                    type="button"
-                    :class="{ listening: listeningIndex === index }"
-                    @click="startReading(item, index)"
-                  >
-                    {{ listeningIndex === index ? '🎙️ 正在听…' : '🎙️ 跟读' }}
-                  </button>
-                </div>
-                <p
-                  v-if="pronunciationResults[index]"
-                  class="speech-result"
-                  :class="pronunciationResults[index].correct ? 'correct' : 'retry'"
-                >
-                  {{ pronunciationResults[index].correct ? '✓ 发音正确' : `识别：${pronunciationResults[index].transcript}` }}
-                </p>
-              </article>
-            </div>
-          </template>
-          <div v-else-if="!englishLoading" class="english-empty">
-            <p>暂时无法获取今日练习</p>
-            <el-button type="primary" plain @click="loadDailyEnglish">重新生成</el-button>
-          </div>
-        </div>
-      </section>
-
       <section class="pet-workbench" :class="{ collapsed: !shopExpanded }">
         <button
           class="shop-collapse-trigger"
@@ -1019,209 +771,6 @@ onBeforeUnmount(() => {
   min-height: 0;
   max-height: none;
   overflow: hidden;
-}
-
-.daily-english {
-  padding: 20px;
-  border-radius: 20px;
-  background: #fff;
-  box-shadow: 0 6px 24px rgba(80, 93, 120, 0.08);
-}
-
-.feature-collapse-trigger {
-  width: 100%;
-  min-height: 68px;
-  border: 0;
-  border-radius: 14px;
-  padding: 10px 14px;
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  cursor: pointer;
-  text-align: left;
-}
-
-.english-trigger {
-  background: linear-gradient(135deg, #eef8ff, #fff 58%, #f2f0ff);
-}
-
-.english-trigger:hover {
-  background: linear-gradient(135deg, #e1f3ff, #fff 58%, #ebe7ff);
-}
-
-.feature-trigger-icon {
-  width: 40px;
-  height: 40px;
-  flex: 0 0 auto;
-  border-radius: 12px;
-  background: #e2f3ff;
-  display: grid;
-  place-items: center;
-  font-size: 22px;
-}
-
-.feature-trigger-copy {
-  min-width: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.feature-trigger-copy strong {
-  color: #3479d8;
-  font-size: 17px;
-}
-
-.feature-trigger-copy small {
-  color: #9299a8;
-  font-size: 11px;
-}
-
-.feature-trigger-arrow {
-  color: #7f8795;
-  font-size: 24px;
-  line-height: 1;
-  transition: transform 0.22s ease;
-}
-
-.feature-trigger-arrow.expanded {
-  transform: rotate(180deg);
-}
-
-.daily-english-body {
-  min-height: 120px;
-  padding-top: 16px;
-}
-
-.english-heading {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.english-heading small,
-.english-heading > span {
-  color: #8a92a3;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.english-heading h2 {
-  margin-top: 3px;
-  font-size: 20px;
-}
-
-.english-card-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.english-card {
-  min-width: 0;
-  border: 1px solid #e5ebf5;
-  border-radius: 14px;
-  padding: 13px;
-  background: linear-gradient(155deg, #fff, #f7fbff);
-}
-
-.english-card.sentence {
-  grid-column: 1 / -1;
-  background: linear-gradient(155deg, #fff, #fbf8ff);
-}
-
-.english-kind {
-  display: inline-flex;
-  border-radius: 999px;
-  padding: 3px 8px;
-  background: #e9f4ff;
-  color: #3479d8;
-  font-size: 10px;
-  font-weight: 800;
-}
-
-.english-card h3 {
-  margin: 9px 0 3px;
-  color: #293548;
-  font-size: 18px;
-  overflow-wrap: anywhere;
-}
-
-.phonetic {
-  color: #79859a;
-  font-size: 12px;
-}
-
-.translation {
-  margin-top: 5px;
-  color: #4f5968;
-  font-size: 17px;
-}
-
-.pronunciation-tip {
-  display: block;
-  margin-top: 6px;
-  color: #9a7a55;
-  line-height: 1.45;
-}
-
-.english-actions {
-  display: flex;
-  gap: 7px;
-  margin-top: 11px;
-}
-
-.english-actions button {
-  flex: 1;
-  border: 1px solid #cfe2f8;
-  border-radius: 8px;
-  padding: 7px 6px;
-  background: #fff;
-  color: #3479d8;
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.english-actions button.listening {
-  border-color: #ff8a65;
-  background: #fff0eb;
-  color: #d95b38;
-  animation: listening-pulse 0.9s ease-in-out infinite alternate;
-}
-
-.speech-result {
-  margin-top: 8px;
-  border-radius: 7px;
-  padding: 6px 8px;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.speech-result.correct {
-  background: #e9f9ed;
-  color: #2e9b4d;
-}
-
-.speech-result.retry {
-  background: #fff3e7;
-  color: #c46b24;
-}
-
-.english-empty {
-  min-height: 110px;
-  display: grid;
-  place-items: center;
-  gap: 10px;
-  color: #9299a8;
-}
-
-@keyframes listening-pulse {
-  to {
-    box-shadow: 0 0 0 4px rgba(255, 138, 101, 0.16);
-  }
 }
 
 .shop-collapse-trigger {
@@ -1834,7 +1383,7 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 0;
   display: grid;
-  grid-template-columns: 104px 1fr 76px;
+  grid-template-columns: minmax(120px, auto) 1fr;
   align-items: center;
   gap: 8px;
   padding: 0 12px;
@@ -1845,10 +1394,7 @@ onBeforeUnmount(() => {
 }
 
 .charge-meta strong {
-  text-align: center;
-}
-
-.charge-meta span:last-child {
+  justify-self: end;
   text-align: right;
 }
 
@@ -1944,18 +1490,9 @@ onBeforeUnmount(() => {
   .pet-stage,
   .adopt-page,
   .room-preview-section,
-  .pet-workbench,
-  .daily-english {
+  .pet-workbench {
     padding: 16px;
     border-radius: 18px;
-  }
-
-  .english-card-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .english-card.sentence {
-    grid-column: auto;
   }
 
 }

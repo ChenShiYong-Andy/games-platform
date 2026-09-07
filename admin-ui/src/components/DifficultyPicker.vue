@@ -3,8 +3,7 @@ const difficulties = [
   {
     value: 'EASY',
     label: '简单',
-    desc: '4×4 小棋盘',
-    sub: '完成 +1 积分',
+    points: 3,
     icon: '🌱',
     bg: 'linear-gradient(145deg, #43a047 0%, #66bb6a 55%, #81c784 100%)',
     shadow: '0 8px 24px rgba(67, 160, 71, 0.35)'
@@ -12,8 +11,7 @@ const difficulties = [
   {
     value: 'MEDIUM',
     label: '中等',
-    desc: '6×6 棋盘',
-    sub: '完成 +3 积分',
+    points: 8,
     icon: '🌊',
     bg: 'linear-gradient(145deg, #1e88e5 0%, #42a5f5 55%, #64b5f6 100%)',
     shadow: '0 8px 24px rgba(30, 136, 229, 0.35)'
@@ -21,8 +19,7 @@ const difficulties = [
   {
     value: 'HARD',
     label: '困难',
-    desc: '9×9 标准棋盘',
-    sub: '完成 +5 积分',
+    points: 20,
     icon: '🔥',
     bg: 'linear-gradient(145deg, #ef6c00 0%, #ffa726 55%, #ffb74d 100%)',
     shadow: '0 8px 24px rgba(239, 108, 0, 0.35)'
@@ -45,10 +42,10 @@ const emit = defineEmits<{
       @click="emit('select', d.value)"
     >
       <span class="card-icon">{{ d.icon }}</span>
-      <span class="card-label">{{ d.label }}</span>
-      <span class="card-desc">{{ d.desc }}</span>
-      <span class="card-sub">{{ d.sub }}</span>
-      <span class="card-hint">点击开始 →</span>
+      <span class="card-title">
+        <span class="card-label">{{ d.label }}</span>
+        <span class="card-points">+{{ d.points }}</span>
+      </span>
     </button>
   </div>
 </template>
@@ -102,6 +99,13 @@ const emit = defineEmits<{
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
 }
 
+.card-title {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
 .card-label {
   font-size: 26px;
   font-weight: 800;
@@ -109,22 +113,21 @@ const emit = defineEmits<{
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-.card-desc {
-  font-size: 15px;
-  font-weight: 600;
-  opacity: 0.95;
-}
-
-.card-sub {
-  font-size: 13px;
-  opacity: 0.85;
-}
-
-.card-hint {
-  margin-top: 12px;
-  font-size: 12px;
-  opacity: 0.75;
-  letter-spacing: 1px;
+.card-points {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 4px 12px rgba(62, 43, 20, 0.2);
+  color: #e65100;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0;
 }
 
 @media (max-width: 768px) {
