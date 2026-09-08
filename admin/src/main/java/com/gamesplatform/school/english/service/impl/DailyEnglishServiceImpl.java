@@ -14,8 +14,10 @@ import com.gamesplatform.school.english.dto.DailyEnglishTaskCompletionResponse;
 import com.gamesplatform.school.english.dto.DailyEnglishTaskStatusResponse;
 import com.gamesplatform.school.english.entity.DailyEnglishConfig;
 import com.gamesplatform.school.english.entity.DailyEnglishPractice;
+import com.gamesplatform.school.english.entity.DailyEnglishUserConfig;
 import com.gamesplatform.school.english.mapper.DailyEnglishConfigMapper;
 import com.gamesplatform.school.english.mapper.DailyEnglishPracticeMapper;
+import com.gamesplatform.school.english.mapper.DailyEnglishUserConfigMapper;
 import com.gamesplatform.system.points.service.PointsService;
 import com.gamesplatform.system.user.service.UserService;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -79,6 +81,12 @@ public class DailyEnglishServiceImpl implements DailyEnglishService {
     private final DailyEnglishPracticeMapper practiceMapper;
 
     /**
+     * 用户级每日英语配置数据访问组件。
+     */
+    @Schema(description = "用户级每日英语配置数据访问组件")
+    private final DailyEnglishUserConfigMapper userConfigMapper;
+
+    /**
      * 练习响应与缓存 JSON 之间的序列化组件。
      */
     @Schema(description = "练习响应与缓存 JSON 之间的序列化组件")
@@ -119,6 +127,7 @@ public class DailyEnglishServiceImpl implements DailyEnglishService {
      *
      * @param configMapper 每日英语生成配置数据访问组件。
      * @param practiceMapper 每日英语练习缓存数据访问组件。
+     * @param userConfigMapper 用户级每日英语配置数据访问组件。
      * @param objectMapper JSON 序列化组件。
      * @param redisTemplate Redis 字符串缓存访问组件。
      * @param pointsService 积分业务服务。
@@ -129,6 +138,7 @@ public class DailyEnglishServiceImpl implements DailyEnglishService {
     public DailyEnglishServiceImpl(
             DailyEnglishConfigMapper configMapper,
             DailyEnglishPracticeMapper practiceMapper,
+            DailyEnglishUserConfigMapper userConfigMapper,
             ObjectMapper objectMapper,
             StringRedisTemplate redisTemplate,
             PointsService pointsService,
@@ -137,6 +147,7 @@ public class DailyEnglishServiceImpl implements DailyEnglishService {
             @Value("${llm.api-key:}") String apiKey) {
         this.configMapper = configMapper;
         this.practiceMapper = practiceMapper;
+        this.userConfigMapper = userConfigMapper;
         this.objectMapper = objectMapper;
         this.redisTemplate = redisTemplate;
         this.pointsService = pointsService;
@@ -150,11 +161,13 @@ public class DailyEnglishServiceImpl implements DailyEnglishService {
      * 已生成的内容优先从 Redis 读取，未命中时查询数据库并回填 Redis；
      * 两级缓存均未命中时调用大模型生成并保存。
      *
+     * @param userId 当前用户 ID。
      * @return 当天的英语口语练习。
      */
     @Override
-    public DailyEnglishResponse getTodayPractice() {
-        DailyEnglishConfig config = configMapper.selectById(CONFIG_ID);
+    public DailyEnglishResponse getTodayPractice(Long userId) {
+        DailyEnglishUserConfig userConfig = userConfigMapper.selectById(userId);
+        DailyEnglishConfig config = effectiveConfig(userConfig);
         if (config == null) {
             throw new BusinessException("每日英语配置不存在，请联系管理员");
         }
@@ -164,7 +177,7 @@ public class DailyEnglishServiceImpl implements DailyEnglishService {
         if (redisCached != null) {
             return redisCached;
         }
-        DailyEnglishPractice cached = findPractice(today, config.getGradeLevel());
+        DailyEnglishPractice cached = userConfig == null ? findPractice(today, config.getGradeLevel()) : null;
         if (cached != null) {
             DailyEnglishResponse response = readCached(cached);
             writeRedisCache(cacheKey, response);
@@ -175,6 +188,10 @@ public class DailyEnglishServiceImpl implements DailyEnglishService {
         }
 
         DailyEnglishResponse generated = generate(config, today);
+        if (userConfig != null) {
+            writeRedisCache(cacheKey, generated);
+            return generated;
+        }
         DailyEnglishPractice practice = new DailyEnglishPractice();
         practice.setPracticeDate(today);
         practice.setGradeLevel(config.getGradeLevel());
@@ -218,7 +235,7 @@ public class DailyEnglishServiceImpl implements DailyEnglishService {
             Long userId,
             DailyEnglishTaskCompletionRequest request) {
         LocalDate today = LocalDate.now();
-        DailyEnglishResponse practice = getTodayPractice();
+        DailyEnglishResponse practice = getTodayPractice(userId);
         validateCompletedItems(practice.getItems(), request.getCompletedItems());
         String completionKey = completionCacheKey(userId, today);
         if (!claimTaskCompletion(completionKey, today)) {
@@ -352,6 +369,28 @@ public class DailyEnglishServiceImpl implements DailyEnglishService {
      */
     private String normalizeTaskText(String value) {
         return value == null ? "" : value.trim().toLowerCase().replaceAll("\\s+", " ");
+    }
+
+    /**
+     * 合并用户级配置与系统默认配置。
+     *
+     * @param userConfig 用户级配置；为空时使用系统默认配置。
+     * @return 可供生成流程统一使用的有效配置。
+     */
+    private DailyEnglishConfig effectiveConfig(DailyEnglishUserConfig userConfig) {
+        if (userConfig == null) {
+            DailyEnglishConfig defaultConfig = configMapper.selectById(CONFIG_ID);
+            if (defaultConfig == null) {
+                throw new BusinessException("每日英语配置不存在，请联系管理员");
+            }
+            return defaultConfig;
+        }
+        DailyEnglishConfig effective = new DailyEnglishConfig();
+        effective.setId(userConfig.getUserId());
+        effective.setGradeLevel(userConfig.getGradeLevel());
+        effective.setSkillMarkdown(userConfig.getSkillMarkdown());
+        effective.setUpdatedAt(userConfig.getUpdatedAt());
+        return effective;
     }
 
     /**

@@ -13,9 +13,10 @@ public interface DailyEnglishService {
     /**
      * 获取当天的英语口语练习。
      *
+     * @param userId 当前用户 ID。
      * @return 当天英语口语练习。
      */
-    DailyEnglishResponse getTodayPractice();
+    DailyEnglishResponse getTodayPractice(Long userId);
 
     /**
      * 查询当前用户当天的跟读任务状态。

@@ -1,6 +1,5 @@
 package com.gamesplatform.system.admin.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -12,11 +11,6 @@ import lombok.Data;
 @Data
 public class AdminPointsAdjustRequest {
 
-    /**
-     * 全局管理后台密码。
-     */
-    @NotBlank(message = "管理密码不能为空")
-    private String adminPassword;
     /**
      * 积分调整值，正数增加，负数扣减。
      */

@@ -279,6 +279,29 @@ export interface DailyEnglishConfig {
   skillMarkdown: string
 }
 
-export interface AdminPortalStatus {
-  passwordSet: boolean
+export interface AdminProfile {
+  id: number
+  username: string
+  displayName: string
+}
+
+export interface AdminAuthResponse {
+  token: string
+  admin: AdminProfile
+}
+
+export interface ManagedUser {
+  user: UserProfile
+  boundAt: string
+}
+
+export interface AdminBindingStatus {
+  bound: boolean
+  adminUsername: string | null
+  adminDisplayName: string | null
+}
+
+export interface AdminBindingCode {
+  code: string
+  expiresAt: string
 }

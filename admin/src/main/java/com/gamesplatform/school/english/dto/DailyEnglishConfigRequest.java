@@ -3,7 +3,6 @@ package com.gamesplatform.school.english.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -30,10 +29,4 @@ public class DailyEnglishConfigRequest {
     @Size(max = 20000, message = "Skill 内容不能超过 20000 个字符")
     private String skillMarkdown;
 
-    /**
-     * 用于验证配置修改权限的管理后台独立密码。
-     */
-    @Schema(description = "用于验证配置修改权限的管理后台独立密码")
-    @NotBlank(message = "管理后台密码不能为空")
-    private String adminPassword;
 }

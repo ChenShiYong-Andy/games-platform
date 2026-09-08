@@ -26,7 +26,6 @@ function handleLogout() {
         <nav class="nav">
           <RouterLink to="/" :class="{ active: activeMenu === '/' }">游戏大厅</RouterLink>
           <RouterLink to="/ranking" :class="{ active: activeMenu === '/ranking' }">排行榜</RouterLink>
-          <RouterLink to="/admin" :class="{ active: activeMenu === '/admin' }">管理</RouterLink>
         </nav>
         <div class="user-area">
           <RouterLink to="/profile" class="user-info">

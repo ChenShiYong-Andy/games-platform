@@ -1,339 +1,125 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { getData, postData, putData } from '@/api'
-import { useAuthStore } from '@/stores/auth'
-import type {
-  AdminPortalStatus,
-  DailyEnglishConfig,
-  UserProfile
-} from '@/types'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { deleteAdminData, getAdminData, postAdminData, putAdminData } from '@/api/admin'
+import type { DailyEnglishConfig, ManagedUser, UserProfile } from '@/types'
 
-const authStore = useAuthStore()
-const loading = ref(true)
-const passwordSet = ref(false)
-const verified = ref(false)
-const submitting = ref(false)
+const users = ref<ManagedUser[]>([])
+const selectedUserId = ref<number | null>(null)
+const loading = ref(false)
 const saving = ref(false)
-const adjustingPoints = ref(false)
-const adjustingPetGrowth = ref(false)
-const password = ref('')
-const confirmPassword = ref('')
-const activeSections = ref<string[]>(['daily-english'])
-const config = ref<DailyEnglishConfig>({ gradeLevel: 1, skillMarkdown: '' })
+const bindForm = ref({ username: '', bindingCode: '' })
 const pointsForm = ref({ amount: 0, description: '' })
-const petConfig = ref({ amount: 0 })
-
+const petForm = ref({ amount: 1 })
+const englishConfig = ref<DailyEnglishConfig>({ gradeLevel: 1, skillMarkdown: '' })
+const activeSections = ref<string[]>(['english'])
+const selected = computed(() => users.value.find(item => item.user.id === selectedUserId.value) || null)
 const gradeOptions = [1, 2, 3, 4, 5, 6]
-const gradeLabel = computed(() => `小学${['一', '二', '三', '四', '五', '六'][config.value.gradeLevel - 1]}年级`)
-const promptPreview = computed(() =>
-  `请为中国${gradeLabel.value}学生生成适龄的每日英语口语练习，包括 5 个单词和 3 个日常短句。`
-)
 
-onMounted(async () => {
-  try {
-    const status = await getData<AdminPortalStatus>('/admin-portal/status')
-    passwordSet.value = status.passwordSet
-  } catch (e: unknown) {
-    ElMessage.error(e instanceof Error ? e.message : '管理后台状态加载失败')
-  } finally {
-    loading.value = false
-  }
-})
+onMounted(loadUsers)
 
-async function submitAccess() {
-  if (password.value.length < 6) {
-    ElMessage.info('请输入至少 6 位管理后台密码')
-    return
-  }
-  if (!passwordSet.value && password.value !== confirmPassword.value) {
-    ElMessage.warning('两次输入的密码不一致')
-    return
-  }
-  submitting.value = true
+async function loadUsers() {
+  loading.value = true
   try {
-    const verifyingExistingPassword = passwordSet.value
-    if (verifyingExistingPassword) {
-      await postData<string>('/admin-portal/verify', { password: password.value })
-    } else {
-      await postData<AdminPortalStatus>('/admin-portal/password', {
-        password: password.value
-      })
-      passwordSet.value = true
-    }
-    verified.value = true
-    confirmPassword.value = ''
-    await loadConfig()
-    ElMessage.success(verifyingExistingPassword ? '管理后台验证成功' : '管理后台密码已设置')
-  } catch (e: unknown) {
-    ElMessage.error(e instanceof Error ? e.message : '验证失败')
-  } finally {
-    submitting.value = false
-  }
+    users.value = await getAdminData<ManagedUser[]>('/managed-users')
+    if (!selectedUserId.value && users.value.length) await selectUser(users.value[0].user.id)
+  } catch (error: unknown) { showError(error, '用户列表加载失败') }
+  finally { loading.value = false }
 }
 
-async function loadConfig() {
-  config.value = await postData<DailyEnglishConfig>(
-    '/admin-portal/daily-english/config',
-    { password: password.value }
-  )
-  await authStore.refreshProfile()
+async function selectUser(userId: number) {
+  selectedUserId.value = userId
+  try {
+    englishConfig.value = await getAdminData<DailyEnglishConfig>(`/managed-users/${userId}/daily-english/config`)
+  } catch (error: unknown) { showError(error, '用户配置加载失败') }
 }
 
-async function saveEnglishConfig() {
+async function bindUser() {
+  if (!bindForm.value.username || !bindForm.value.bindingCode) return ElMessage.warning('请输入用户账号和绑定码')
+  try {
+    const result = await postAdminData<ManagedUser>('/managed-users/bind', bindForm.value)
+    bindForm.value = { username: '', bindingCode: '' }
+    await loadUsers(); await selectUser(result.user.id)
+    ElMessage.success('用户关联成功')
+  } catch (error: unknown) { showError(error, '关联失败') }
+}
+
+async function unbindUser() {
+  if (!selected.value) return
+  try {
+    await ElMessageBox.confirm(`确认解除与 ${selected.value.user.nickname} 的关联？`, '解除关联', { type: 'warning' })
+  } catch { return }
+  try {
+    await deleteAdminData<string>(`/managed-users/${selected.value.user.id}`)
+    selectedUserId.value = null; await loadUsers(); ElMessage.success('已解除关联')
+  } catch (error: unknown) { showError(error, '解除关联失败') }
+}
+
+async function saveEnglish() {
+  if (!selectedUserId.value) return
   saving.value = true
   try {
-    config.value = await putData<DailyEnglishConfig>(
-      '/admin-portal/daily-english/config',
-      {
-        ...config.value,
-        adminPassword: password.value
-      }
-    )
-    ElMessage.success('每日英语配置已保存，今日内容将在下次展开时重新生成')
-  } catch (e: unknown) {
-    ElMessage.error(e instanceof Error ? e.message : '配置保存失败')
-  } finally {
-    saving.value = false
-  }
+    englishConfig.value = await putAdminData<DailyEnglishConfig>(`/managed-users/${selectedUserId.value}/daily-english/config`, englishConfig.value)
+    ElMessage.success('每日英语配置已保存')
+  } catch (error: unknown) { showError(error, '保存失败') }
+  finally { saving.value = false }
 }
 
-function applyProfile(profile: UserProfile) {
-  authStore.user = profile
-  localStorage.setItem('user', JSON.stringify(profile))
+async function resetEnglish() {
+  if (!selectedUserId.value) return
+  try {
+    englishConfig.value = await deleteAdminData<DailyEnglishConfig>(`/managed-users/${selectedUserId.value}/daily-english/config`)
+    ElMessage.success('已恢复系统默认配置')
+  } catch (error: unknown) { showError(error, '恢复失败') }
 }
 
 async function adjustPoints() {
-  if (!pointsForm.value.amount) {
-    ElMessage.info('请输入非 0 的积分调整值')
-    return
-  }
-  adjustingPoints.value = true
+  if (!selectedUserId.value || !pointsForm.value.amount) return ElMessage.warning('请输入非 0 的积分调整值')
   try {
-    const profile = await postData<UserProfile>('/admin-portal/points', {
-      ...pointsForm.value,
-      adminPassword: password.value
-    })
-    applyProfile(profile)
-    pointsForm.value = { amount: 0, description: '' }
-    ElMessage.success('积分已调整')
-  } catch (e: unknown) {
-    ElMessage.error(e instanceof Error ? e.message : '调整失败')
-  } finally {
-    adjustingPoints.value = false
-  }
+    const profile = await postAdminData<UserProfile>(`/managed-users/${selectedUserId.value}/points/adjust`, pointsForm.value)
+    const item = users.value.find(entry => entry.user.id === profile.id)
+    if (item) item.user = profile
+    pointsForm.value = { amount: 0, description: '' }; ElMessage.success('积分调整成功')
+  } catch (error: unknown) { showError(error, '积分调整失败') }
 }
 
-async function deductPetGrowth() {
-  if (!petConfig.value.amount || petConfig.value.amount < 1) {
-    ElMessage.info('请输入要扣减的成长值')
-    return
-  }
-  adjustingPetGrowth.value = true
+async function deductGrowth() {
+  if (!selectedUserId.value || petForm.value.amount < 1) return
   try {
-    await postData<string>('/admin-portal/pet/growth/deduct', {
-      ...petConfig.value,
-      adminPassword: password.value
-    })
-    petConfig.value.amount = 0
+    await postAdminData<string>(`/managed-users/${selectedUserId.value}/pet/growth/deduct`, petForm.value)
     ElMessage.success('宠物成长值已扣减')
-  } catch (e: unknown) {
-    ElMessage.error(e instanceof Error ? e.message : '扣减失败')
-  } finally {
-    adjustingPetGrowth.value = false
-  }
+  } catch (error: unknown) { showError(error, '成长值扣减失败') }
 }
+
+function showError(error: unknown, fallback: string) { ElMessage.error(error instanceof Error ? error.message : fallback) }
 </script>
 
 <template>
-  <div class="page-container admin-page" v-loading="loading">
-    <header class="admin-header">
-      <div>
-        <span>ADMIN CONSOLE</span>
-        <h1>管理后台</h1>
-        <p>独立管理密码保护 · 功能配置按模块折叠展示</p>
-      </div>
-      <div class="security-badge">🔐 独立密码</div>
-    </header>
-
-    <section v-if="!loading && !verified" class="access-card card">
-      <div class="access-icon">{{ passwordSet ? '🔑' : '🛡️' }}</div>
-      <h2>{{ passwordSet ? '验证管理后台密码' : '首次设置管理后台密码' }}</h2>
-      <p>
-        {{ passwordSet
-          ? '每次进入 /admin 都需要重新验证全局管理密码。'
-          : '此密码单独保存在管理安全配置中，不属于任何用户。' }}
-      </p>
-      <el-input
-        v-model="password"
-        type="password"
-        show-password
-        size="large"
-        placeholder="至少 6 位"
-        @keyup.enter="submitAccess"
-      />
-      <el-input
-        v-if="!passwordSet"
-        v-model="confirmPassword"
-        type="password"
-        show-password
-        size="large"
-        placeholder="再次输入密码"
-        @keyup.enter="submitAccess"
-      />
-      <el-button type="primary" size="large" :loading="submitting" @click="submitAccess">
-        {{ passwordSet ? '验证并进入' : '设置并进入' }}
-      </el-button>
-    </section>
-
-    <section v-else-if="verified" class="config-shell card">
-      <div class="managed-user">
-        <div>👤 当前操作用户</div>
-        <strong>{{ authStore.user?.nickname }} <small>({{ authStore.user?.username }})</small></strong>
-      </div>
-      <el-collapse v-model="activeSections">
-        <el-collapse-item name="daily-english">
-          <template #title>
-            <div class="collapse-title">
-              <span>🔤</span>
-              <div>
-                <strong>每日英语配置</strong>
-                <small>控制口语练习的学习阶段与生成 Skill</small>
-              </div>
-            </div>
-          </template>
-
-          <div class="english-config-grid">
-            <section class="config-block">
-              <div class="block-title">
-                <span>01</span>
-                <div><h2>基础配置</h2><p>选择生成内容对应的小学学习阶段</p></div>
-              </div>
-              <el-radio-group v-model="config.gradeLevel" class="grade-grid">
-                <el-radio-button v-for="grade in gradeOptions" :key="grade" :value="grade">
-                  {{ grade }} 年级
-                </el-radio-button>
-              </el-radio-group>
-              <div class="prompt-preview">
-                <strong>基础提示词预览</strong>
-                <p>{{ promptPreview }}</p>
-              </div>
-            </section>
-
-            <section class="config-block">
-              <div class="block-title">
-                <span>02</span>
-                <div><h2>高级配置</h2><p>Markdown Skill 会追加到基础提示词之后</p></div>
-              </div>
-              <el-input
-                v-model="config.skillMarkdown"
-                type="textarea"
-                :rows="13"
-                maxlength="20000"
-                show-word-limit
-                placeholder="# 教学目标&#10;- 使用生活化主题&#10;- 重点练习自然拼读"
-              />
-            </section>
-          </div>
-
-          <div class="config-actions">
-            <span>保存后会清除已缓存的每日练习</span>
-            <el-button type="primary" size="large" :loading="saving" @click="saveEnglishConfig">
-              保存每日英语配置
-            </el-button>
-          </div>
-        </el-collapse-item>
-
-        <el-collapse-item name="points">
-          <template #title>
-            <div class="collapse-title">
-              <span>🪙</span>
-              <div>
-                <strong>积分调整</strong>
-                <small>为当前登录用户增加或扣减积分</small>
-              </div>
-            </div>
-          </template>
-          <div class="operation-panel">
-            <el-form label-width="150px">
-              <el-form-item label="调整积分">
-                <el-input-number v-model="pointsForm.amount" :min="-100000" :max="100000" />
-              </el-form-item>
-              <el-form-item label="调整说明">
-                <el-input v-model="pointsForm.description" placeholder="例如：活动奖励、误发扣回" />
-              </el-form-item>
-              <el-form-item>
-                <el-button type="primary" :loading="adjustingPoints" @click="adjustPoints">
-                  提交积分调整
-                </el-button>
-              </el-form-item>
-            </el-form>
-          </div>
-        </el-collapse-item>
-
-        <el-collapse-item name="pet">
-          <template #title>
-            <div class="collapse-title">
-              <span>🐾</span>
-              <div>
-                <strong>宠物配置</strong>
-                <small>扣减当前登录用户的宠物成长值</small>
-              </div>
-            </div>
-          </template>
-          <div class="operation-panel">
-            <el-form label-width="150px">
-              <el-form-item label="扣减成长值">
-                <el-input-number v-model="petConfig.amount" :min="1" :max="100000" />
-              </el-form-item>
-              <el-form-item>
-                <el-button type="danger" :loading="adjustingPetGrowth" @click="deductPetGrowth">
-                  提交成长值扣减
-                </el-button>
-              </el-form-item>
-            </el-form>
-          </div>
-        </el-collapse-item>
-
-      </el-collapse>
-    </section>
+  <div class="admin-workbench" v-loading="loading">
+    <header class="page-title"><span>ADMIN CONSOLE</span><h1>用户管理工作台</h1><p>仅可管理已授权关联的普通用户</p></header>
+    <div class="workbench-grid">
+      <aside class="user-panel card">
+        <div class="panel-heading"><h2>关联用户</h2><span>{{ users.length }} 人</span></div>
+        <div class="bind-form"><el-input v-model="bindForm.username" placeholder="用户账号" /><el-input v-model="bindForm.bindingCode" placeholder="一次性绑定码" maxlength="8" /><el-button type="primary" @click="bindUser">关联用户</el-button></div>
+        <div v-if="users.length" class="user-list"><button v-for="item in users" :key="item.user.id" :class="{ active: selectedUserId === item.user.id }" @click="selectUser(item.user.id)"><b>{{ item.user.nickname }}</b><small>@{{ item.user.username }}</small><em>{{ item.user.totalPoints }} 积分</em></button></div>
+        <el-empty v-else description="暂无关联用户" :image-size="70" />
+      </aside>
+      <main class="config-panel card">
+        <template v-if="selected">
+          <div class="selected-header"><div><small>当前管理用户</small><h2>{{ selected.user.nickname }} <span>(@{{ selected.user.username }})</span></h2></div><el-button type="danger" plain @click="unbindUser">解除关联</el-button></div>
+          <div class="profile-stats"><div><b>{{ selected.user.totalPoints }}</b><span>总积分</span></div><div><b>Lv.{{ selected.user.level }}</b><span>等级</span></div><div><b>{{ selected.user.totalClears }}</b><span>通关次数</span></div></div>
+          <el-collapse v-model="activeSections">
+            <el-collapse-item name="english" title="🔤 每日英语配置"><section class="config-block"><h3>学习阶段</h3><el-radio-group v-model="englishConfig.gradeLevel"><el-radio-button v-for="grade in gradeOptions" :key="grade" :value="grade">{{ grade }} 年级</el-radio-button></el-radio-group><h3>高级 Skill</h3><el-input v-model="englishConfig.skillMarkdown" type="textarea" :rows="9" maxlength="20000" show-word-limit placeholder="# 教学目标" /><div class="actions"><el-button @click="resetEnglish">恢复默认</el-button><el-button type="primary" :loading="saving" @click="saveEnglish">保存配置</el-button></div></section></el-collapse-item>
+            <el-collapse-item name="points" title="🪙 积分调整"><section class="inline-form"><el-input-number v-model="pointsForm.amount" :min="-100000" :max="100000" /><el-input v-model="pointsForm.description" placeholder="调整原因" /><el-button type="primary" @click="adjustPoints">提交</el-button></section></el-collapse-item>
+            <el-collapse-item name="pet" title="🐾 宠物配置"><section class="inline-form"><el-input-number v-model="petForm.amount" :min="1" :max="100000" /><el-button type="danger" plain @click="deductGrowth">扣减成长值</el-button></section></el-collapse-item>
+          </el-collapse>
+        </template>
+        <el-empty v-else description="请先关联或选择一个用户" />
+      </main>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.admin-page { max-width: 1120px; }
-.admin-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;padding:4px 2px; }
-.admin-header span { color:#667eea;font-size:12px;font-weight:900;letter-spacing:1.5px; }
-.admin-header h1 { margin:5px 0;font-size:34px; }
-.admin-header p { color:#838a99; }
-.security-badge { border:1px solid #dfe4f3;border-radius:999px;padding:9px 14px;background:#fff;color:#596174;font-weight:700; }
-.access-card { width:min(460px,100%);margin:56px auto;padding:34px;display:flex;flex-direction:column;gap:16px;text-align:center; }
-.access-icon { font-size:48px; }
-.access-card h2 { font-size:24px; }
-.access-card p { color:#7d8594;line-height:1.7; }
-.config-shell { padding:12px 26px 26px; }
-.config-shell :deep(.el-collapse-item__header) { min-height:64px;height:auto;padding:9px 0;line-height:1.2; }
-.managed-user { display:flex;align-items:center;justify-content:space-between;gap:16px;margin:4px 0 10px;padding:13px 15px;border-radius:12px;background:#f4f6fb;color:#747c8c;font-size:13px; }
-.managed-user strong { color:#343b4a;font-size:15px; }
-.managed-user small { color:#8d94a2;font-weight:500; }
-.collapse-title { display:flex;align-items:center;gap:12px;text-align:left; }
-.collapse-title > span { font-size:26px;line-height:1; }
-.collapse-title div { display:flex;flex-direction:column;gap:4px;line-height:1.2; }
-.collapse-title strong { font-size:17px;line-height:1.2; }
-.collapse-title small { color:#9299a8;font-size:12px;line-height:1.3; }
-.english-config-grid { display:grid;grid-template-columns:.85fr 1.15fr;gap:18px;padding:16px 2px; }
-.config-block { border:1px solid #e7eaf3;border-radius:16px;padding:20px;background:#fbfcff; }
-.block-title { display:flex;align-items:flex-start;gap:11px;margin-bottom:20px; }
-.block-title > span { width:32px;height:32px;border-radius:9px;background:#e9edff;color:#667eea;display:grid;place-items:center;font-size:11px;font-weight:900; }
-.block-title h2 { font-size:19px;margin-bottom:3px; }
-.block-title p { color:#9299a8;font-size:12px; }
-.grade-grid { display:grid;grid-template-columns:repeat(3,1fr);width:100%; }
-.grade-grid :deep(.el-radio-button__inner) { width:100%; }
-.prompt-preview { margin-top:20px;border-radius:12px;padding:14px;background:#f0f3ff;color:#586174; }
-.prompt-preview strong { display:block;margin-bottom:7px;color:#49536a;font-size:13px; }
-.prompt-preview p { font-size:13px;line-height:1.65; }
-.config-actions { display:flex;align-items:center;justify-content:flex-end;gap:18px;padding-top:12px; }
-.config-actions span { color:#9299a8;font-size:12px; }
-.operation-panel { max-width:680px;padding:22px 4px 10px; }
-@media(max-width:760px){.admin-header{align-items:flex-start}.security-badge{display:none}.english-config-grid{grid-template-columns:1fr}.grade-grid{grid-template-columns:repeat(2,1fr)}.config-actions{align-items:stretch;flex-direction:column}}
+.admin-workbench{max-width:1320px;margin:auto}.page-title{margin:8px 0 22px}.page-title span{color:#667eea;font-size:12px;font-weight:900;letter-spacing:2px}.page-title h1{margin:5px 0;font-size:32px}.page-title p{color:#8991a1}.workbench-grid{display:grid;grid-template-columns:320px 1fr;gap:20px;align-items:start}.card{border-radius:18px;background:#fff;box-shadow:0 10px 35px #26334d10}.user-panel,.config-panel{padding:22px}.panel-heading,.selected-header{display:flex;justify-content:space-between;align-items:center}.panel-heading span{background:#eef1ff;color:#667eea;padding:5px 10px;border-radius:999px}.bind-form{display:grid;gap:9px;margin:18px 0}.user-list{display:grid;gap:8px}.user-list button{border:1px solid #e7eaf2;border-radius:12px;padding:13px;text-align:left;background:#fff;display:grid;grid-template-columns:1fr auto;cursor:pointer}.user-list button.active{border-color:#667eea;background:#f2f4ff}.user-list small{grid-column:1;color:#9299a8}.user-list em{grid-column:2;grid-row:1/3;align-self:center;color:#667eea;font-style:normal}.selected-header{padding-bottom:16px;border-bottom:1px solid #edf0f5}.selected-header small{color:#9299a8}.selected-header h2{margin-top:4px}.selected-header h2 span{color:#8991a1;font-size:14px}.profile-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0}.profile-stats div{padding:14px;border-radius:12px;background:#f5f7fc;display:flex;flex-direction:column}.profile-stats b{font-size:21px;color:#5366d9}.profile-stats span{font-size:12px;color:#9299a8}.config-panel :deep(.el-collapse-item__header){font-size:16px;font-weight:800}.config-block{padding:14px 4px}.config-block h3{margin:10px 0}.actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}.inline-form{display:flex;gap:12px;padding:18px 4px;max-width:680px}@media(max-width:850px){.workbench-grid{grid-template-columns:1fr}.inline-form{flex-wrap:wrap}}
 </style>

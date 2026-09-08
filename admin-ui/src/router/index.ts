@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useAdminAuthStore } from '@/stores/adminAuth'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -17,6 +18,26 @@ const router = createRouter({
       meta: { guest: true }
     },
     {
+      path: '/admin/login',
+      name: 'AdminLogin',
+      component: () => import('@/views/admin/AdminLoginView.vue'),
+      meta: { adminGuest: true }
+    },
+    {
+      path: '/admin/register',
+      name: 'AdminRegister',
+      component: () => import('@/views/admin/AdminRegisterView.vue'),
+      meta: { adminGuest: true }
+    },
+    {
+      path: '/admin',
+      component: () => import('@/layouts/AdminLayout.vue'),
+      meta: { requiresAdminAuth: true },
+      children: [
+        { path: '', name: 'Admin', component: () => import('@/views/AdminView.vue') }
+      ]
+    },
+    {
       path: '/',
       component: () => import('@/layouts/MainLayout.vue'),
       meta: { requiresAuth: true },
@@ -29,7 +50,6 @@ const router = createRouter({
         { path: 'games/gomoku', name: 'Gomoku', component: () => import('@/views/games/GomokuView.vue') },
         { path: 'games/chess', name: 'ChineseChess', component: () => import('@/views/games/ChineseChessView.vue') },
         { path: 'profile', name: 'Profile', component: () => import('@/views/ProfileView.vue') },
-        { path: 'admin', name: 'Admin', component: () => import('@/views/AdminView.vue') },
         { path: 'ranking', name: 'Ranking', component: () => import('@/views/RankingView.vue') },
         // 旧路由兼容
         { path: 'game', redirect: '/games/sudoku' },
@@ -41,7 +61,12 @@ const router = createRouter({
 
 router.beforeEach((to, _from, next) => {
   const authStore = useAuthStore()
-  if (to.meta.requiresAuth && !authStore.isLoggedIn) {
+  const adminAuthStore = useAdminAuthStore()
+  if (to.meta.requiresAdminAuth && !adminAuthStore.isLoggedIn) {
+    next('/admin/login')
+  } else if (to.meta.adminGuest && adminAuthStore.isLoggedIn) {
+    next('/admin')
+  } else if (to.meta.requiresAuth && !authStore.isLoggedIn) {
     next('/login')
   } else if (to.meta.guest && authStore.isLoggedIn) {
     next('/')

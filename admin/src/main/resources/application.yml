@@ -44,8 +44,15 @@ mybatis-plus:
       id-type: auto
 
 jwt:
-  secret: games-platform-jwt-secret-key-2024-must-be-at-least-256-bits-long
+  secret: ${JWT_SECRET:1f702134957b3c014fce729cc5a8d0dc5a29ea26f2f3316b593961c64c2252bc}
   expiration: 86400000
+
+admin:
+  jwt:
+    secret: ${ADMIN_JWT_SECRET:d0b6e66b3068b64348eb5472a7b9c0f833ad812ac4a6d5d8a4e17ec139a5548c}
+    expiration: ${ADMIN_JWT_EXPIRATION:28800000}
+  binding-code:
+    ttl-minutes: ${ADMIN_BINDING_CODE_TTL_MINUTES:10}
 
 logging:
   level:

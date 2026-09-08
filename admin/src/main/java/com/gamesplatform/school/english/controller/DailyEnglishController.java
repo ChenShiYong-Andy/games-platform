@@ -33,11 +33,13 @@ public class DailyEnglishController {
     /**
      * 获取当天的英语口语练习；当天同一年级的内容优先从缓存读取。
      *
+     * @param authentication 当前认证信息。
      * @return 当天英语口语练习响应。
      */
     @GetMapping("/today")
-    public ApiResponse<DailyEnglishResponse> getTodayPractice() {
-        return ApiResponse.success(dailyEnglishService.getTodayPractice());
+    public ApiResponse<DailyEnglishResponse> getTodayPractice(Authentication authentication) {
+        Long userId = (Long) authentication.getPrincipal();
+        return ApiResponse.success(dailyEnglishService.getTodayPractice(userId));
     }
 
     /**

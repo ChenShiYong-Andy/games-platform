@@ -1,7 +1,8 @@
 package com.gamesplatform.system.admin.service.impl;
 
 import com.gamesplatform.system.admin.service.AdminConfigService;
-import com.gamesplatform.system.admin.service.AdminPortalService;
+import com.gamesplatform.system.admin.service.AdminAuditService;
+import com.gamesplatform.system.admin.service.AdminAuthorizationService;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.gamesplatform.system.admin.dto.AdminPetGrowthAdjustRequest;
@@ -17,13 +18,14 @@ import com.gamesplatform.system.user.entity.User;
 import com.gamesplatform.system.user.mapper.UserMapper;
 import com.gamesplatform.system.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
 /**
- * 管理后台中面向当前登录用户的运维服务。
+ * 管理后台中面向已关联普通用户的运维服务。
  */
 @Service
 @RequiredArgsConstructor
@@ -37,37 +39,53 @@ public class AdminConfigServiceImpl implements AdminConfigService {
     /**
      * 用户数据访问组件。
      */
+    @Schema(description = "用户数据访问组件")
     private final UserMapper userMapper;
-    private final AdminPortalService adminPortalService;
+    /**
+     * 管理端关联授权服务。
+     */
+    @Schema(description = "管理端关联授权服务")
+    private final AdminAuthorizationService authorizationService;
+    /**
+     * 管理员操作审计服务。
+     */
+    @Schema(description = "管理员操作审计服务")
+    private final AdminAuditService auditService;
     /**
      * 用户服务。
      */
+    @Schema(description = "用户服务")
     private final UserService userService;
     /**
      * 积分服务。
      */
+    @Schema(description = "积分服务")
     private final PointsService pointsService;
     /**
      * 用户宠物数据访问组件。
      */
+    @Schema(description = "用户宠物数据访问组件")
     private final PetUserMapper petUserMapper;
     /**
      * 宠物成长阶段配置数据访问组件。
      */
+    @Schema(description = "宠物成长阶段配置数据访问组件")
     private final PetGrowthStageConfigMapper petGrowthStageConfigMapper;
 
     /**
      * 调整积分。
      *
+     * @param adminId 管理员 ID。
      * @param userId 用户 ID。
      * @param request 请求参数。
      * @return 处理结果。
      */
     @Transactional
     @Override
-    public UserProfileResponse adjustPoints(Long userId, AdminPointsAdjustRequest request) {
-        adminPortalService.verifyPassword(request.getAdminPassword());
+    public UserProfileResponse adjustPoints(Long adminId, Long userId, AdminPointsAdjustRequest request) {
+        authorizationService.requireLinkedUser(adminId, userId);
         requireUser(userId);
+        UserProfileResponse before = userService.getProfile(userId);
         Integer amount = request.getAmount();
         if (amount == 0) {
             throw new BusinessException("积分调整值不能为0");
@@ -76,23 +94,26 @@ public class AdminConfigServiceImpl implements AdminConfigService {
                 ? "管理员调整积分"
                 : request.getDescription().trim();
         if (amount > 0) {
-            pointsService.awardPoints(userId, amount, "ADMIN_ADJUST", userId, description);
+            pointsService.awardPoints(userId, amount, "ADMIN_ADJUST", adminId, description);
         } else {
-            pointsService.deductPoints(userId, -amount, "ADMIN_ADJUST", userId, description);
+            pointsService.deductPoints(userId, -amount, "ADMIN_ADJUST", adminId, description);
         }
-        return userService.getProfile(userId);
+        UserProfileResponse after = userService.getProfile(userId);
+        auditService.record(adminId, userId, "POINTS", "ADJUST", before, after);
+        return after;
     }
 
     /**
      * 扣减宠物成长值。
      *
+     * @param adminId 管理员 ID。
      * @param userId 用户 ID。
      * @param request 请求参数。
      */
     @Transactional
     @Override
-    public void deductPetGrowth(Long userId, AdminPetGrowthAdjustRequest request) {
-        adminPortalService.verifyPassword(request.getAdminPassword());
+    public void deductPetGrowth(Long adminId, Long userId, AdminPetGrowthAdjustRequest request) {
+        authorizationService.requireLinkedUser(adminId, userId);
         requireUser(userId);
         PetUser pet = petUserMapper.selectOne(
                 new LambdaQueryWrapper<PetUser>()
@@ -101,6 +122,8 @@ public class AdminConfigServiceImpl implements AdminConfigService {
         if (pet == null) {
             throw new BusinessException("请先领养宠物");
         }
+
+        String before = "level=" + pet.getLevel() + ",exp=" + pet.getExp();
 
         int level = pet.getLevel() != null ? pet.getLevel() : 1;
         int exp = pet.getExp() != null ? pet.getExp() : 0;
@@ -124,6 +147,8 @@ public class AdminConfigServiceImpl implements AdminConfigService {
         }
         pet.setUpdateTime(LocalDateTime.now());
         petUserMapper.updateById(pet);
+        String after = "level=" + pet.getLevel() + ",exp=" + pet.getExp();
+        auditService.record(adminId, userId, "PET", "DEDUCT_GROWTH", before, after);
     }
 
     private User requireUser(Long userId) {

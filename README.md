@@ -21,7 +21,7 @@
 - **象棋中心** — 好友房间与人机对局、随机分配红黑方、服务端走子校验和胜负积分结算（认输不计积分）
 - **宠物养成** — 宠物状态、权益商店、积分兑换、背包使用、装扮切换
 - **每日英语** — 大模型按年级生成每日单词与短句，支持设备朗读、录音跟读和发音校验
-- **独立管理后台** — `/admin` 使用唯一的全局管理密码保护，以折叠面板管理每日英语、积分和宠物成长值
+- **独立管理后台** — `/admin` 提供独立管理员注册与登录；管理员通过用户授权的一次性绑定码关联多个用户，并按用户管理每日英语、积分和宠物成长值
 - **积分中心** — 游戏积分奖励、流水记录、用户等级
 - **排行榜中心** — 总积分榜、本周积分榜、数独速度榜
 
@@ -50,6 +50,10 @@ cp .env.example .env
 | `LLM_BASE_URL` | 文本大模型地址；未设置时继承 `OPENAI_BASE_URL` |
 | `LLM_API_KEY` | 文本大模型密钥；未设置时继承 `OPENAI_API_KEY` |
 | `LLM_MODEL` | 文本模型名称，默认 `gpt-4o-mini` |
+| `JWT_SECRET` | 普通用户令牌签名密钥，生产环境必须使用至少 32 字节随机值 |
+| `ADMIN_JWT_SECRET` | 独立管理员令牌签名密钥，生产环境必须使用至少 32 字节随机值 |
+| `ADMIN_JWT_EXPIRATION` | 管理员令牌有效毫秒数，默认 8 小时 |
+| `ADMIN_BINDING_CODE_TTL_MINUTES` | 用户一次性绑定码有效分钟数，默认 10 分钟 |
 
 | `REGISTRY_USERNAME` | 镜像仓库用户名（阿里云 ACR 通常为命名空间名） |
 | `REGISTRY_PASSWORD` | 镜像仓库密码（阿里云 ACR 为「访问凭证」固定密码） |
@@ -188,7 +192,7 @@ games-platform/
 │       │   │   │   ├── pet/          # 宠物养成、权益、背包与兑换
 │       │   │   │   └── ranking/      # 总榜、周榜与数独速度榜
 │       │   │   └── system/           # 系统基础能力聚合
-│       │   │       ├── admin/         # 全局管理后台、游戏配置与积分调整
+│       │   │       ├── admin/         # 管理员认证、用户关联、授权审计与用户配置
 │       │   │       ├── auth/          # JWT 签发与认证过滤器
 │       │   │       ├── points/        # 用户积分及积分流水
 │       │   │       └── user/          # 注册、登录与用户资料
@@ -209,15 +213,16 @@ games-platform/
 │       ├── assets/                     # 游戏图片、GIF 与页面资源
 │       ├── components/                 # 游戏卡片、数独棋盘、排行榜等组件
 │       ├── config/                     # 游戏大厅注册配置
-│       ├── layouts/                    # 主页面布局
+│       ├── layouts/                    # 用户端与独立管理端布局
 │       ├── router/                     # 页面路由与登录守卫
-│       ├── stores/                     # Pinia 登录状态
+│       ├── stores/                     # 普通用户与管理员独立 Pinia 登录状态
 │       ├── styles/                     # 全局样式
 │       ├── types/                      # 前端接口类型定义
 │       ├── utils/                      # 剪贴板等浏览器兼容工具
 │       └── views/
 │           ├── games/                  # 数独、五子棋、象棋、宠物页面
-│           ├── AdminView.vue           # 独立密码保护的管理后台
+│           ├── admin/                   # 管理员独立登录与注册页面
+│           ├── AdminView.vue           # 关联用户管理工作台
 │           └── ...                     # 大厅、登录、资料与排行页面
 ├── docker/
 │   ├── database/                      # MySQL + Redis 独立部署与持久化
@@ -251,9 +256,11 @@ public interface GameEngine {
 
 数据库结构由 Flyway 管理：`V1__init.sql` 用于基础表初始化，后续 `V*__upgrade.sql` 用于宠物、游戏房间及结算字段升级。应用启动时会自动执行尚未应用的迁移。
 
-前端游戏大厅由 `admin-ui/src/config/games.ts` 统一注册游戏卡片；路由页面采用按需加载，认证状态由 Pinia 维护，API 请求由 Axios 拦截器统一附加 Bearer Token。
+前端游戏大厅由 `admin-ui/src/config/games.ts` 统一注册游戏卡片；路由页面采用按需加载。普通用户和管理员分别维护独立 Pinia 会话与 Axios 实例，管理员令牌保存在 `sessionStorage`，不会与用户令牌混用。
 
-每日英语通过 Spring AI 的 OpenAI 模型适配器调用兼容接口。`OPENAI_*` 提供通用连接配置，`LLM_*` 可为文本模型单独覆盖，未设置时自动继承通用配置。内容按日期和年级使用 Redis 与 MySQL 两级缓存，Redis 未命中或不可用时自动回退数据库；管理员更新年级或 Skill 后通过 Spring Cache 的 `@CacheEvict` 声明式清理缓存。所有 Redis 顶层键统一使用 `system.redis.key-prefix` 配置的系统前缀，部署时可通过 `REDIS_KEY_PREFIX` 覆盖，默认值为 `games-platform`。播放与录音识别使用浏览器设备的 Web Speech API，录音不会上传或保存到服务端。
+管理后台不设置超级管理员。管理员可在 `/admin/register` 自助创建独立账号；普通用户在个人资料页生成 10 分钟有效的一次性绑定码，管理员使用“用户账号 + 绑定码”完成关联。一个管理员可以关联多个用户，一个普通用户最多关联一个管理员；普通用户不能主动解除关联，关联管理员可在工作台解除。数据库唯一约束负责并发兜底，积分、宠物和每日英语配置操作均先经过统一关联授权，并写入管理员操作审计日志。
+
+每日英语通过 Spring AI 的 OpenAI 模型适配器调用兼容接口。`OPENAI_*` 提供通用连接配置，`LLM_*` 可为文本模型单独覆盖，未设置时自动继承通用配置。用户级年级与 Skill 配置优先于系统默认配置；默认内容按日期和年级使用 Redis 与 MySQL 两级缓存，用户定制内容按配置指纹独立缓存。管理员更新配置后使用 Spring Cache 的 `@CacheEvict` 声明式失效。所有 Redis 顶层键统一使用 `system.redis.key-prefix` 配置的系统前缀，部署时可通过 `REDIS_KEY_PREFIX` 覆盖，默认值为 `games-platform`。播放与录音识别使用浏览器设备的 Web Speech API，录音不会上传或保存到服务端。
 
 ## API 概览
 
@@ -263,6 +270,16 @@ public interface GameEngine {
 | POST | /api/auth/login | 用户登录 |
 | GET | /api/user/profile | 获取用户资料 |
 | PUT | /api/user/profile | 更新用户资料 |
+| GET | /api/user/admin-binding | 查询管理员关联状态 |
+| POST | /api/user/admin-binding/code | 生成一次性管理员绑定码 |
+| POST | /api/admin/auth/register | 创建独立管理员账号 |
+| POST | /api/admin/auth/login | 管理员登录 |
+| GET | /api/admin/managed-users | 查询管理员关联的用户 |
+| POST | /api/admin/managed-users/bind | 使用一次性绑定码关联用户 |
+| DELETE | /api/admin/managed-users/{userId} | 管理员解除用户关联 |
+| POST | /api/admin/managed-users/{userId}/points/adjust | 调整关联用户积分 |
+| POST | /api/admin/managed-users/{userId}/pet/growth/deduct | 扣减关联用户宠物成长值 |
+| GET/PUT/DELETE | /api/admin/managed-users/{userId}/daily-english/config | 查询、保存或恢复用户每日英语配置 |
 | POST | /api/sudoku/games | 创建数独游戏 |
 | GET | /api/sudoku/games | 查询数独游戏历史 |
 | GET | /api/sudoku/games/{id} | 查询数独游戏详情 |

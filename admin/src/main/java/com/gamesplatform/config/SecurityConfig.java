@@ -1,7 +1,9 @@
 package com.gamesplatform.config;
 
 import com.gamesplatform.system.auth.JwtAuthenticationFilter;
+import com.gamesplatform.system.admin.security.AdminJwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -27,7 +29,13 @@ public class SecurityConfig {
     /**
      * JWT 身份认证过滤器。
      */
+    @Schema(description = "JWT 身份认证过滤器")
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    /**
+     * 独立管理员身份认证过滤器。
+     */
+    @Schema(description = "独立管理员身份认证过滤器")
+    private final AdminJwtAuthenticationFilter adminJwtAuthenticationFilter;
 
     /**
      * 创建安全过滤链。
@@ -44,9 +52,12 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/admin/auth/register", "/api/admin/auth/login").permitAll()
                         .requestMatchers("/api/ranking/**").permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
+                .addFilterBefore(adminJwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

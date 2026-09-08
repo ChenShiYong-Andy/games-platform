@@ -10,6 +10,7 @@ import com.gamesplatform.school.english.entity.DailyEnglishConfig;
 import com.gamesplatform.school.english.entity.DailyEnglishPractice;
 import com.gamesplatform.school.english.mapper.DailyEnglishConfigMapper;
 import com.gamesplatform.school.english.mapper.DailyEnglishPracticeMapper;
+import com.gamesplatform.school.english.mapper.DailyEnglishUserConfigMapper;
 import com.gamesplatform.school.english.service.impl.DailyEnglishServiceImpl;
 import com.gamesplatform.system.points.service.PointsService;
 import com.gamesplatform.system.user.service.UserService;
@@ -38,6 +39,7 @@ class DailyEnglishServiceTest {
 
     private DailyEnglishConfigMapper configMapper;
     private DailyEnglishPracticeMapper practiceMapper;
+    private DailyEnglishUserConfigMapper userConfigMapper;
     private StringRedisTemplate redisTemplate;
     private ValueOperations<String, String> valueOperations;
     private ObjectMapper objectMapper;
@@ -50,6 +52,7 @@ class DailyEnglishServiceTest {
     void setUp() {
         configMapper = mock(DailyEnglishConfigMapper.class);
         practiceMapper = mock(DailyEnglishPracticeMapper.class);
+        userConfigMapper = mock(DailyEnglishUserConfigMapper.class);
         redisTemplate = mock(StringRedisTemplate.class);
         valueOperations = mock(ValueOperations.class);
         objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
@@ -61,6 +64,7 @@ class DailyEnglishServiceTest {
         service = new DailyEnglishServiceImpl(
                 configMapper,
                 practiceMapper,
+                userConfigMapper,
                 objectMapper,
                 redisTemplate,
                 pointsService,
@@ -79,7 +83,7 @@ class DailyEnglishServiceTest {
         DailyEnglishResponse expected = response();
         when(valueOperations.get(anyString())).thenReturn(objectMapper.writeValueAsString(expected));
 
-        DailyEnglishResponse actual = service.getTodayPractice();
+        DailyEnglishResponse actual = service.getTodayPractice(7L);
 
         assertEquals(expected.getTitle(), actual.getTitle());
         assertEquals(expected.getItems().getFirst().getText(), actual.getItems().getFirst().getText());
@@ -95,7 +99,7 @@ class DailyEnglishServiceTest {
         when(valueOperations.get(anyString())).thenReturn(null);
         when(practiceMapper.selectOne(any())).thenReturn(practice);
 
-        DailyEnglishResponse actual = service.getTodayPractice();
+        DailyEnglishResponse actual = service.getTodayPractice(7L);
 
         assertEquals(expected.getTitle(), actual.getTitle());
         verify(valueOperations).set(anyString(), anyString(), eq(Duration.ofHours(25)));
